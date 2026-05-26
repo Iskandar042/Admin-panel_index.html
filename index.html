@@ -4206,16 +4206,32 @@
 
     </script>
 </body>
-    <script>
+   <script>
 
 async function onTelegramAuth(user) {
 
     console.log("Telegram user:", user);
 
-    alert(
-        "Telegram login success\n\n" +
-        "Username: " + user.username
-    );
+    const { data, error } = await supabase
+        .rpc('verify_telegram_login', {
+            p_id: user.id,
+            p_username: user.username
+        });
+
+    console.log("RPC data:", data);
+    console.log("RPC error:", error);
+
+    if (error || !data || !data.success) {
+
+        document.getElementById('loginError').style.display = 'block';
+
+        document.getElementById('loginError').innerText =
+            '❌ Ошибка авторизации. Попробуйте снова.';
+
+        return;
+    }
+
+    document.getElementById('loginOverlay').style.display = 'none';
 
 }
 
