@@ -4129,16 +4129,10 @@
                 ? 'Telegram ma\'lumotlari tekshirilmoqda…'
                 : 'Проверяем данные Telegram…');
 
-            try {
-                var res = await _sb.rpc('verify_telegram_login', {
-                    p_id:         user.id,
-                    p_first_name: user.first_name  || '',
-                    p_last_name:  user.last_name   || '',
-                    p_username:   user.username    || '',
-                    p_photo_url:  user.photo_url   || '',
-                    p_auth_date:  user.auth_date,
-                    p_hash:       user.hash
-                });
+           try {
+    var res = await _sb.rpc('verify_telegram_login', {
+        p_username: user.username || ''
+    });
 
                 if (res.error) {
                     // Supabase / network error (e.g. function not found)
