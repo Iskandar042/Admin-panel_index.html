@@ -794,6 +794,16 @@
     <script>
 var BOT_USERNAME = 'leadgram_admin_bot';
     </script>
+    <div id="telegramWidgetContainer">
+    <script async
+        src="https://telegram.org/js/telegram-widget.js?22"
+        data-telegram-login="leadgram_admin_bot"
+        data-size="large"
+        data-userpic="false"
+        data-request-access="write"
+        data-onauth="onTelegramAuth(user)">
+    </script>
+</div>
     <!-- ═══ LOGIN OVERLAY ════════════════════════════════════════════════ -->
     <div id="loginOverlay">
         <div class="login-card">
