@@ -800,7 +800,15 @@
 
             <div class="login-error" id="loginError"></div>
             <div class="login-info"  id="loginInfo"></div>
-
+            <!-- Logout Section (when already logged in) -->
+            <div id="logoutSection" style="text-align:center;margin-bottom:20px;display:none;">
+                <p style="font-size:14px;color:#cbd5e1;margin-bottom:15px;">
+                    ✅ Logged in as <strong id="logoutAdminName">User</strong>
+                </p>
+                <button onclick="adminLogoutFromLogin()" style="padding:10px 24px;border-radius:8px;border:2px solid #ef4444;background:#ef4444;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;">
+                    🚪 Logout
+                </button>
+            </div>
             <!-- Telegram Login Widget -->
             <div id="stepTelegram" style="text-align:center;">
                 <p id="loginHintMain" style="font-size:13px;color:#cbd5e1;margin-bottom:22px;line-height:1.6;">
