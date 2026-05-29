@@ -4246,29 +4246,36 @@
             location.reload();
         }
 
-        // ── Show/Hide Logged-in Section ────────────────────────────────
+              // ── Show/Hide Logged-in Section ────────────────────────────────
         function updateLoggedInSection() {
             var token = localStorage.getItem(AUTH_TOKEN_KEY);
-            var stepTelegram = document.getElementById('stepTelegram');
+            var loginHintMain = document.getElementById('loginHintMain');
+            var telegramContainer = document.getElementById('telegramWidgetContainer');
+            var loginHintSub = document.getElementById('loginHintSub');
             var loggedInSection = document.getElementById('loggedInSection');
 
-            if (token && stepTelegram && loggedInSection) {
+            console.log('updateLoggedInSection: token exists?', !!token);
+
+            if (token) {
                 // If token exists, hide telegram and show logout button
-                document.querySelector('#stepTelegram > p:nth-of-type(1)').style.display = 'none';
-                document.getElementById('telegramWidgetContainer').style.display = 'none';
-                document.querySelector('#stepTelegram > p:nth-of-type(2)').style.display = 'none';
-                loggedInSection.style.display = 'block';
-            } else if (stepTelegram && loggedInSection) {
+                if (loginHintMain) loginHintMain.style.display = 'none';
+                if (telegramContainer) telegramContainer.style.display = 'none';
+                if (loginHintSub) loginHintSub.style.display = 'none';
+                if (loggedInSection) loggedInSection.style.display = 'block';
+                console.log('Showing logged-in section');
+            } else {
                 // If no token, show telegram and hide logout button
-                document.querySelector('#stepTelegram > p:nth-of-type(1)').style.display = 'block';
-                document.getElementById('telegramWidgetContainer').style.display = 'block';
-                document.querySelector('#stepTelegram > p:nth-of-type(2)').style.display = 'block';
-                loggedInSection.style.display = 'none';
+                if (loginHintMain) loginHintMain.style.display = 'block';
+                if (telegramContainer) telegramContainer.style.display = 'block';
+                if (loginHintSub) loginHintSub.style.display = 'block';
+                if (loggedInSection) loggedInSection.style.display = 'none';
+                console.log('Showing telegram login');
             }
         }
 
         // ── Update on page load and after login ──────────────────────────
-        window.addEventListener('load', function() {
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded - updating section');
             updateLoggedInSection();
         });
 
