@@ -4106,12 +4106,15 @@
             document.getElementById('loginInfo').style.display  = 'none';
         }
 
-        // ── Check session on page load ─────────────────────────────────
-              (async function checkAdminSession() {
+               // ── Check session on page load ─────────────────────────────────
+        (async function checkAdminSession() {
             var token = localStorage.getItem(AUTH_TOKEN_KEY);
+            
+            // Always show login overlay first
+            _showLoginOverlay();
+            updateLoggedInSection();
+            
             if (!token) { 
-                _showLoginOverlay();
-                updateLoggedInSection();
                 return; 
             }
 
@@ -4120,16 +4123,19 @@
                 if (res.data && res.data.valid) {
                     document.getElementById('adminNameDisplay').textContent = res.data.name || 'Admin';
                     document.getElementById('currentAdminName').textContent = res.data.name || 'Admin';
-                    updateLoggedInSection();
-                    _hideLoginOverlay();
-                    initApp();
+                    // Auto-enter admin panel after 2 seconds
+                    setTimeout(function() {
+                        _hideLoginOverlay();
+                        initApp();
+                    }, 2000);
                 } else {
                     localStorage.removeItem(AUTH_TOKEN_KEY);
-                    _showLoginOverlay();
+                    updateLoggedInSection();
                 }
             } catch(e) {
+                console.error('Session check error:', e);
                 localStorage.removeItem(AUTH_TOKEN_KEY);
-                _showLoginOverlay();
+                updateLoggedInSection();
             }
         })();
 
