@@ -4107,14 +4107,20 @@
         }
 
         // ── Check session on page load ─────────────────────────────────
-        (async function checkAdminSession() {
+              (async function checkAdminSession() {
             var token = localStorage.getItem(AUTH_TOKEN_KEY);
-            if (!token) { _showLoginOverlay(); return; }
+            if (!token) { 
+                _showLoginOverlay();
+                updateLoggedInSection();
+                return; 
+            }
 
             try {
                 var res = await _sb.rpc('check_admin_session', { p_token: token });
                 if (res.data && res.data.valid) {
                     document.getElementById('adminNameDisplay').textContent = res.data.name || 'Admin';
+                    document.getElementById('currentAdminName').textContent = res.data.name || 'Admin';
+                    updateLoggedInSection();
                     _hideLoginOverlay();
                     initApp();
                 } else {
