@@ -823,14 +823,14 @@
                 </p>
 
                 <!-- Logout Button (visible when logged in) -->
-                <div id="loggedInSection" style="margin-top:20px;display:none;">
-                    <p style="font-size:13px;color:#cbd5e1;margin-bottom:16px;">
-                        <strong id="currentAdminName">Админ</strong> вошел в систему
+               <div id="loggedInSection" style="margin-top:20px;display:none;text-align:center;">
+                    <p style="font-size:14px;color:#cbd5e1;margin-bottom:20px;">
+                        ✅ Вы вошли как <strong id="currentAdminName" style="color:#10b981;">Iskandar</strong>
                     </p>
                     <button onclick="adminLogoutFromLogin()"
-                        style="padding:10px 24px;border-radius:8px;border:2px solid #ef4444;background:#ef4444;color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;"
-                        onmouseover="this.style.opacity='0.8'"
-                        onmouseout="this.style.opacity='1'">
+                        style="padding:12px 32px;border-radius:8px;border:2px solid #ef4444;background:#ef4444;color:#fff;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;width:100%;max-width:300px;"
+                        onmouseover="this.style.opacity='0.8';this.style.transform='scale(1.02)'"
+                        onmouseout="this.style.opacity='1';this.style.transform='scale(1)'">
                         🚪 Выйти / Сменить аккаунт
                     </button>
                 </div>
@@ -4253,14 +4253,27 @@
         }
 
               // ── Show/Hide Logged-in Section ────────────────────────────────
-        function updateLoggedInSection() {
+              function updateLoggedInSection() {
             var token = localStorage.getItem(AUTH_TOKEN_KEY);
-            var loginHintMain = document.getElementById('loginHintMain');
-            var telegramContainer = document.getElementById('telegramWidgetContainer');
-            var loginHintSub = document.getElementById('loginHintSub');
+            var stepTelegram = document.getElementById('stepTelegram');
             var loggedInSection = document.getElementById('loggedInSection');
 
             console.log('updateLoggedInSection: token exists?', !!token);
+
+            if (token && stepTelegram && loggedInSection) {
+                // Hide entire Telegram section
+                stepTelegram.style.display = 'none';
+                // Show logout section
+                loggedInSection.style.display = 'block';
+                console.log('Showing logged-in section');
+            } else if (stepTelegram && loggedInSection) {
+                // Show Telegram section
+                stepTelegram.style.display = 'block';
+                // Hide logout section
+                loggedInSection.style.display = 'none';
+                console.log('Showing telegram login');
+            }
+        }
 
             if (token) {
                 // If token exists, hide telegram and show logout button
