@@ -4107,6 +4107,7 @@
         }
 
                // ── Check session on page load ─────────────────────────────────
+               // ── Check session on page load ─────────────────────────────────
         (async function checkAdminSession() {
             var token = localStorage.getItem(AUTH_TOKEN_KEY);
             
@@ -4115,20 +4116,32 @@
             updateLoggedInSection();
             
             if (!token) { 
+                console.log('No token found');
                 return; 
             }
 
             try {
                 var res = await _sb.rpc('check_admin_session', { p_token: token });
+                console.log('check_admin_session result:', res);
+                
                 if (res.data && res.data.valid) {
-                    document.getElementById('adminNameDisplay').textContent = res.data.name || 'Admin';
-                    document.getElementById('currentAdminName').textContent = res.data.name || 'Admin';
+                    var adminName = res.data.name || 'Admin';
+                    console.log('Admin name:', adminName);
+                    
+                    document.getElementById('adminNameDisplay').textContent = adminName;
+                    var nameEl = document.getElementById('currentAdminName');
+                    if (nameEl) {
+                        nameEl.textContent = adminName;
+                        console.log('Updated currentAdminName to:', adminName);
+                    }
+                    
                     // Auto-enter admin panel after 2 seconds
                     setTimeout(function() {
                         _hideLoginOverlay();
                         initApp();
                     }, 2000);
                 } else {
+                    console.log('Session not valid');
                     localStorage.removeItem(AUTH_TOKEN_KEY);
                     updateLoggedInSection();
                 }
@@ -4138,7 +4151,6 @@
                 updateLoggedInSection();
             }
         })();
-
         // ── Language helper ────────────────────────────────────────────
         function _loginLang() {
             var sel = document.getElementById('langSelector');
