@@ -808,22 +808,61 @@
         #telegramWidgetContainer { display: flex; justify-content: center; min-height: 54px; }
 
         /* ── TELEGRAM MINI APP MODE ─────────────────────────────────── */
-        body.tg-miniapp header        { padding: 10px 16px; }
-        body.tg-miniapp .logo         { font-size: 20px; }
-        body.tg-miniapp nav           { padding: 10px 12px; margin-top: 10px; border-radius: 10px; }
-        body.tg-miniapp .nav-tabs     { gap: 6px; }
-        body.tg-miniapp .nav-tab      { padding: 7px 12px; font-size: 12px; border-radius: 10px; }
-        body.tg-miniapp .container    { padding: 10px; padding-bottom: 80px; }
-        body.tg-miniapp .content-section { padding: 16px; border-radius: 10px; margin-top: 12px; }
-        body.tg-miniapp .section-title { font-size: 18px; }
-        body.tg-miniapp .dashboard    { gap: 10px; }
-        body.tg-miniapp .stat-card    { padding: 16px; border-radius: 10px; }
-        body.tg-miniapp .stat-value   { font-size: 24px; }
-        body.tg-miniapp table         { font-size: 12px; }
-        body.tg-miniapp th, body.tg-miniapp td { padding: 8px 6px; }
-        /* Hide desktop-only elements in mini app */
+        body.tg-miniapp               { background: #f1f5f9; }
+        body.tg-miniapp header        { padding: 10px 14px; position: sticky; top: 0; z-index: 50; }
+        body.tg-miniapp .logo         { font-size: 18px; letter-spacing: 1px; }
+        body.tg-miniapp nav           { display: none; }   /* replaced by bottom nav */
+        body.tg-miniapp .container    { padding: 10px 10px 90px; max-width: 100%; }
+        body.tg-miniapp .content-section { padding: 12px; border-radius: 12px; margin-top: 10px; }
+        body.tg-miniapp .section-title { font-size: 16px; }
+        body.tg-miniapp .section-header { margin-bottom: 12px; padding-bottom: 10px; }
+        body.tg-miniapp .dashboard    { grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        body.tg-miniapp .stat-card    { padding: 12px; border-radius: 10px; }
+        body.tg-miniapp .stat-label   { font-size: 11px; margin-bottom: 8px; }
+        body.tg-miniapp .stat-value   { font-size: 22px; }
+        /* Hide tables in mini app — JS renders cards instead */
+        body.tg-miniapp .table-container { display: none; }
+        body.tg-miniapp #mobileCards     { display: block; }
+        /* Search bar */
+        body.tg-miniapp .search-bar   { margin-bottom: 10px; }
+        body.tg-miniapp .search-input { padding: 10px 14px; font-size: 14px; border-radius: 10px; }
+        /* Filter buttons */
+        body.tg-miniapp #bookingFilterBtns .btn { padding: 8px 12px; font-size: 12px; border-radius: 10px; }
+        /* Hero header in appointments */
+        body.tg-miniapp #appointments > div:first-child { padding: 16px; border-radius: 14px; margin-bottom: 12px; }
+        body.tg-miniapp #appointments > div:first-child h1 { font-size: 22px; margin-bottom: 4px; }
+        body.tg-miniapp #appointments > div:first-child p  { font-size: 13px; }
+        body.tg-miniapp #appointments > div:first-child button { font-size: 14px; padding: 10px 16px; }
+        body.tg-miniapp #appointments > div:first-child .dashboard { grid-template-columns: 1fr 1fr; gap: 8px; }
+        /* Hide desktop-only elements */
         body.tg-miniapp .location-selector { display: none; }
-        body.tg-miniapp #logoutBtn          { padding: 8px 14px; font-size: 12px; }
+        body.tg-miniapp #logoutBtn          { padding: 7px 12px; font-size: 12px; }
+        body.tg-miniapp .user-info span.user-name { display: none; }
+
+        /* ── Mobile booking card (shown only in Mini App) ────────────── */
+        .mob-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 13px;
+            margin-bottom: 8px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .mob-card-plate {
+            font-size: 18px; font-weight: 800; font-family: monospace; letter-spacing: 1px;
+        }
+        .mob-card-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+        .mob-card-row    { display: flex; justify-content: space-between; align-items: center;
+                           margin-top: 8px; font-size: 13px; color: var(--light-gray); }
+        .mob-card-row strong { color: var(--light); }
+        .mob-card-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+        .mob-card-actions .btn {
+            flex: 1; min-width: 0; padding: 9px 8px; font-size: 12px;
+            border-radius: 9px; border: none; cursor: pointer; font-weight: 700;
+        }
+        .mob-card-photo { width:100%; max-height:160px; object-fit:cover;
+                          border-radius:8px; margin-top:8px; cursor:pointer; }
+        #mobileCards { display: none; }
 
         /* Floating mini app bottom nav */
         #tgBottomNav {
@@ -1357,6 +1396,9 @@
                 </button>
 
             </div>
+            <!-- Mobile card list (visible only in Telegram Mini App) -->
+            <div id="mobileCards"></div>
+
             <div class="table-container">
                 <table>
                     <thead>
@@ -1766,6 +1808,10 @@
                 <div class="stat-card" style="border-left:4px solid #10b981;"><div class="stat-label" data-ru="Выплачено" data-uz="To'langan">Выплачено</div><div class="stat-value" id="staff-paid" style="font-size:24px;">0</div></div>
                 <div class="stat-card" style="border-left:4px solid #ef4444;"><div class="stat-label" data-ru="К выплате" data-uz="To'lanmagan">К выплате</div><div class="stat-value" id="staff-unpaid" style="font-size:24px;">0</div></div>
             </div>
+
+            <!-- Mobile cards for staff (Mini App only) -->
+            <div id="staffMobileCards" style="display:none;"></div>
+            <style>body.tg-miniapp #staffMobileCards{display:block;} body.tg-miniapp #staff .table-container{display:none;}</style>
 
             <div class="table-container" style="overflow-x:auto;">
                 <table>
@@ -3401,6 +3447,48 @@
                     return true; // 'all'
                 })
                 .sort(function(a, b){ return b.created_at.localeCompare(a.created_at); });
+            // ── Mobile card view (Mini App) ───────────────────────────
+            var mobileCards = document.getElementById('mobileCards');
+            if (mobileCards && IS_TG_MINIAPP) {
+                mobileCards.innerHTML = list.length ? list.map(function(b) {
+                    var wf = b.workflow_status || 'queue';
+                    var py = b.payment_status  || 'pending';
+                    var wfColor = wf==='done' ? '#10b981' : wf==='washing' ? '#2563eb' : '#f59e0b';
+                    var wfLabel = wf==='done' ? '✅ Завершено' : wf==='washing' ? '🚿 Моется' : '⏳ Очередь';
+                    var pyColor = py==='paid' ? '#10b981' : '#ef4444';
+                    var pyLabel = py==='paid' ? '✅ Оплачено' : py==='pending' ? '⏳ Ожидает' : '❌ Не оплачено';
+                    var photoHtml = b.photo_url
+                        ? '<img class="mob-card-photo" src="' + b.photo_url + '" onclick="adminShowPhoto(\'' + b.id + '\')" onerror="this.style.display=\'none\'">'
+                        : '';
+                    return '<div class="mob-card">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
+                            '<span class="mob-card-plate">' + (b.license_plate||'').replace(' | ',' ') + '</span>' +
+                            '<span style="font-size:11px;color:var(--light-gray);">' + (b.time||b.wash_time||'') + '</span>' +
+                        '</div>' +
+                        '<div class="mob-card-badges">' +
+                            '<span style="background:' + (wf==='done'?'#d1fae5':wf==='washing'?'#dbeafe':'#fef3c7') + ';color:' + wfColor + ';padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;">' + wfLabel + '</span>' +
+                            '<span style="background:' + (py==='paid'?'#d1fae5':'#fee2e2') + ';color:' + pyColor + ';padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;">' + pyLabel + '</span>' +
+                        '</div>' +
+                        '<div class="mob-card-row">' +
+                            '<span>🚙 ' + (b.car_brand||'') + ' ' + (b.car_model||'') + '</span>' +
+                            '<strong>' + (b.amount||0).toLocaleString() + ' сум</strong>' +
+                        '</div>' +
+                        '<div class="mob-card-row">' +
+                            '<span>🧼 ' + svcLabel(b.service, b.service_label) + '</span>' +
+                            '<span>' + (b.payment_type==='card'?'💳 Карта':'💵 Наличные') + '</span>' +
+                        '</div>' +
+                        (b.washer ? '<div class="mob-card-row"><span>👷 ' + b.washer + '</span></div>' : '') +
+                        photoHtml +
+                        '<div class="mob-card-actions">' +
+                            '<button class="btn" style="background:var(--gradient-1);color:#fff;" onclick="openEditBooking(\'' + b.id + '\')">✏️ Изменить</button>' +
+                            (py !== 'paid' ? '<button class="btn" style="background:#6366f1;color:#fff;" onclick="markPaid(\'' + b.id + '\')">💳 Оплачено</button>' : '') +
+                            '<button class="btn" style="background:#ef4444;color:#fff;" onclick="deleteBooking(\'' + b.id + '\')">🗑️</button>' +
+                        '</div>' +
+                    '</div>';
+                }).join('') : '<div style="text-align:center;padding:40px;color:var(--light-gray);">📭 ' + (L ? "Ma'lumot yo'q" : 'Нет записей') + '</div>';
+            }
+
+            // ── Desktop table view ────────────────────────────────────
             tbody.innerHTML = list.length
                 ? list.map(function(b) {
                     var wf = b.workflow_status || 'queue';
@@ -4124,6 +4212,52 @@
             set('staff-payroll', payroll.toLocaleString() + unit);
             set('staff-paid',    paidSum.toLocaleString() + unit);
             set('staff-unpaid',  unpaidSum.toLocaleString() + unit);
+
+            // Mobile card view for Mini App
+            var staffMob = document.getElementById('staffMobileCards');
+            if (staffMob && IS_TG_MINIAPP) {
+                var staffData = staff.length ? staff : [];
+                staffMob.innerHTML = staffData.length ? staffData.map(function(w){
+                    var uname  = (w.telegram_username||'').toLowerCase();
+                    var cars   = carsBy[uname] || 0;
+                    var workedMins = minsBy[uname] || 0;
+                    var workedStr  = workedMins > 0
+                        ? Math.floor(workedMins/60) + ' ч ' + (workedMins%60) + ' мин'
+                        : '—';
+                    var base  = w.salary  || 0;
+                    var total = base + (cars * (w.per_car||0));
+                    var isPaid = !!(monthPaid[uname]);
+                    return '<div class="mob-card">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                            '<div>' +
+                                '<div style="font-size:16px;font-weight:700;">' + (w.name||'—') + '</div>' +
+                                '<div style="font-size:12px;color:var(--light-gray);">@' + (w.telegram_username||'') + '</div>' +
+                            '</div>' +
+                            (isPaid
+                                ? '<span style="background:#d1fae5;color:#065f46;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;">✅ Выплачено</span>'
+                                : '<button onclick="toggleSalaryPaid(\'' + uname + '\')" style="background:#6366f1;color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">💵 Выплатить</button>') +
+                        '</div>' +
+                        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;">' +
+                            '<div style="background:var(--bg-main);border-radius:8px;padding:8px;text-align:center;">' +
+                                '<div style="font-size:10px;color:var(--light-gray);">Машин</div>' +
+                                '<div style="font-size:20px;font-weight:700;">' + cars + '</div>' +
+                            '</div>' +
+                            '<div style="background:var(--bg-main);border-radius:8px;padding:8px;text-align:center;">' +
+                                '<div style="font-size:10px;color:var(--light-gray);">Отработано</div>' +
+                                '<div style="font-size:13px;font-weight:700;">' + workedStr + '</div>' +
+                            '</div>' +
+                            '<div style="background:var(--bg-main);border-radius:8px;padding:8px;text-align:center;">' +
+                                '<div style="font-size:10px;color:var(--light-gray);">Итого</div>' +
+                                '<div style="font-size:13px;font-weight:700;color:var(--primary);">' + total.toLocaleString() + '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="mob-card-actions">' +
+                            '<button class="btn" style="background:var(--bg-main);color:var(--light);border:1px solid var(--border);" onclick=\'openEditStaff(' + JSON.stringify(w) + ')\'>✏️ Изменить</button>' +
+                            '<button class="btn" style="background:#ef4444;color:#fff;" onclick="deleteStaff(\'' + (w.telegram_username||'') + '\')">🗑️</button>' +
+                        '</div>' +
+                    '</div>';
+                }).join('') : '<div style="text-align:center;padding:30px;color:var(--light-gray);">Нет сотрудников</div>';
+            }
         }
 
         function toggleSalaryPaid(uname) {
@@ -4800,6 +4934,19 @@
 
             // Apply compact mobile class
             document.body.classList.add('tg-miniapp');
+
+            // Replace login overlay with a simple loading screen —
+            // no Login Widget needed, auth is via telegram_username
+            var loginCard = document.querySelector('.login-card');
+            if (loginCard) {
+                loginCard.innerHTML =
+                    '<div style="text-align:center;padding:20px 0;">' +
+                    '<div class="login-logo">🚗 LEADGRAM</div>' +
+                    '<div style="margin-top:30px;font-size:40px;">⏳</div>' +
+                    '<p style="color:#94a3b8;font-size:14px;margin-top:14px;">Проверка доступа…</p>' +
+                    '<p style="color:#475569;font-size:12px;margin-top:6px;">@' + (tgUser.username || tgUser.first_name || '') + '</p>' +
+                    '</div>';
+            }
 
             // Use Telegram theme colours
             var bg = tg.themeParams && tg.themeParams.bg_color;
