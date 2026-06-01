@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leadgram CRM - Автомойка CRM система</title>
+    <!-- Telegram Mini App SDK (loads silently when opened in browser) -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <!-- Supabase JS SDK v2 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -804,6 +806,54 @@
         }
         /* ── Telegram widget centering ───────────────────────────── */
         #telegramWidgetContainer { display: flex; justify-content: center; min-height: 54px; }
+
+        /* ── TELEGRAM MINI APP MODE ─────────────────────────────────── */
+        body.tg-miniapp header        { padding: 10px 16px; }
+        body.tg-miniapp .logo         { font-size: 20px; }
+        body.tg-miniapp nav           { padding: 10px 12px; margin-top: 10px; border-radius: 10px; }
+        body.tg-miniapp .nav-tabs     { gap: 6px; }
+        body.tg-miniapp .nav-tab      { padding: 7px 12px; font-size: 12px; border-radius: 10px; }
+        body.tg-miniapp .container    { padding: 10px; padding-bottom: 80px; }
+        body.tg-miniapp .content-section { padding: 16px; border-radius: 10px; margin-top: 12px; }
+        body.tg-miniapp .section-title { font-size: 18px; }
+        body.tg-miniapp .dashboard    { gap: 10px; }
+        body.tg-miniapp .stat-card    { padding: 16px; border-radius: 10px; }
+        body.tg-miniapp .stat-value   { font-size: 24px; }
+        body.tg-miniapp table         { font-size: 12px; }
+        body.tg-miniapp th, body.tg-miniapp td { padding: 8px 6px; }
+        /* Hide desktop-only elements in mini app */
+        body.tg-miniapp .location-selector { display: none; }
+        body.tg-miniapp #logoutBtn          { padding: 8px 14px; font-size: 12px; }
+
+        /* Floating mini app bottom nav */
+        #tgBottomNav {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            z-index: 200;
+            padding: 6px 0 env(safe-area-inset-bottom, 6px);
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+        }
+        body.tg-miniapp #tgBottomNav { display: flex; }
+        .tg-nav-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 6px 2px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            color: var(--light-gray);
+            font-size: 9px;
+            font-weight: 600;
+            transition: color 0.15s;
+        }
+        .tg-nav-btn.active { color: var(--primary); }
+        .tg-nav-btn .tg-nav-icon { font-size: 20px; }
     </style>
 </head>
 <body>
@@ -2616,17 +2666,32 @@
             });
         }
 
-        // Tab switching
+        // Tab switching — shared function used by top nav, bottom nav, and code
+        function switchTab(tabName) {
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            var topTab = document.querySelector('.nav-tab[data-tab="' + tabName + '"]');
+            if (topTab) topTab.classList.add('active');
+            var section = document.getElementById(tabName);
+            if (section) section.classList.add('active');
+            // Sync bottom nav highlight
+            document.querySelectorAll('.tg-nav-btn').forEach(b => b.classList.remove('active'));
+            var bottomBtn = document.getElementById('tgNav-' + tabName);
+            if (bottomBtn) bottomBtn.classList.add('active');
+            // Show Telegram back button when not on default tab
+            if (IS_TG_MINIAPP && window.Telegram && window.Telegram.WebApp) {
+                if (tabName !== 'appointments') {
+                    window.Telegram.WebApp.BackButton.show();
+                } else {
+                    window.Telegram.WebApp.BackButton.hide();
+                }
+            }
+            if (typeof renderAll === 'function') renderAll();
+        }
+
         document.querySelectorAll('.nav-tab').forEach(tab => {
             tab.addEventListener('click', () => {
-                // Remove active class from all tabs and sections
-                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
-                
-                // Add active class to clicked tab and corresponding section
-                tab.classList.add('active');
-                const tabName = tab.getAttribute('data-tab');
-                document.getElementById(tabName).classList.add('active');
+                switchTab(tab.getAttribute('data-tab'));
             });
         });
 
@@ -3358,9 +3423,14 @@
                     '<td>' + washDuration(b, L) + '</td>' +
                     '<td style="font-size:13px;">' + (b.washer || '—') + '</td>' +
                     '<td>' + (b.photo_url
-                        ? '<a href="' + b.photo_url + '" target="_blank" title="' + (L ? 'Rasmni ko\'rish' : 'Открыть фото') + '">' +
-                          '<img src="' + b.photo_url + '" style="width:54px;height:40px;object-fit:cover;border-radius:6px;border:1.5px solid var(--border);cursor:pointer;" ' +
-                          'onerror="this.parentElement.innerHTML=\'📷\'"></a>'
+                        ? (function(url){
+                            var isRemote = url.startsWith('http');
+                            var thumb = '<img src="' + url + '" style="width:54px;height:40px;object-fit:cover;border-radius:6px;border:1.5px solid var(--border);cursor:pointer;" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'inline\'">' +
+                                        '<span style="display:none;font-size:18px;">📷</span>';
+                            return isRemote
+                              ? '<a href="' + url + '" target="_blank" title="Открыть фото">' + thumb + '</a>'
+                              : '<span onclick="adminShowPhoto(\'' + b.id + '\')" style="cursor:pointer;" title="Просмотр">' + thumb + '</span>';
+                          })(b.photo_url)
                         : '<span style="color:var(--light-gray);font-size:12px;">—</span>') + '</td>' +
                     '<td style="white-space:nowrap;">' +
                         '<button class="action-btn" title="' + (L ? 'Tahrirlash' : 'Редактировать') + '" onclick="openEditBooking(\'' + b.id + '\')">✏️</button>' +
@@ -3860,6 +3930,25 @@
         }
 
         // ── Toast notification ────────────────────────────────────────
+        function adminShowPhoto(bookingId) {
+            var bookings = DB.load('crm_bookings', []);
+            var b = bookings.find(function(x){ return x.id === bookingId; });
+            var url = (b && b.photo_url) || '';
+            if (!url) return;
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;padding:20px;cursor:pointer;';
+            overlay.onclick = function(){ document.body.removeChild(overlay); };
+            var img = document.createElement('img');
+            img.src = url;
+            img.style.cssText = 'max-width:100%;max-height:90vh;border-radius:12px;object-fit:contain;box-shadow:0 0 40px rgba(0,0,0,0.5);';
+            var hint = document.createElement('div');
+            hint.style.cssText = 'position:absolute;bottom:30px;color:rgba(255,255,255,0.6);font-size:13px;';
+            hint.textContent = 'Нажмите в любом месте, чтобы закрыть';
+            overlay.appendChild(img);
+            overlay.appendChild(hint);
+            document.body.appendChild(overlay);
+        }
+
         function showToast(msg, isError) {
             var t = document.getElementById('crmToast');
             if (!t) {
@@ -4698,6 +4787,73 @@
         //   AUTH SYSTEM  (Telegram Login Widget)
         // ═══════════════════════════════════════════════════════════════
         var AUTH_TOKEN_KEY  = 'lg_admin_token';
+        var IS_TG_MINIAPP   = false;   // set to true when opened inside Telegram
+
+        // ── Telegram Mini App init ─────────────────────────────────────
+        (function initTelegramMiniApp() {
+            var tg = window.Telegram && window.Telegram.WebApp;
+            if (!tg || !tg.initDataUnsafe || !tg.initDataUnsafe.user) return;
+
+            IS_TG_MINIAPP = true;
+            tg.ready();
+            tg.expand();
+
+            // Apply compact mobile class
+            document.body.classList.add('tg-miniapp');
+
+            // Use Telegram theme colours
+            var bg = tg.themeParams && tg.themeParams.bg_color;
+            if (bg) document.documentElement.style.setProperty('--bg-card', bg);
+
+            var tgUser = tg.initDataUnsafe.user;
+
+            // Back-button support: close modals or go back to appointments
+            tg.BackButton.onClick(function() {
+                var openModal = document.querySelector('.modal.active');
+                if (openModal) { openModal.classList.remove('active'); tg.BackButton.hide(); return; }
+                switchTab('appointments');
+                tg.BackButton.hide();
+            });
+
+            // Override checkAdminSession to use Telegram ID auth instead
+            window._tgAdminInit = async function() {
+                _showLoginOverlay();
+                try {
+                    var res = await _sb.rpc('verify_admin_by_telegram', {
+                        p_telegram_id: tgUser.id
+                    });
+                    if (res.data && res.data.authorized) {
+                        var name = res.data.name || tgUser.first_name || 'Admin';
+                        document.getElementById('adminNameDisplay').textContent = name;
+                        _hideLoginOverlay();
+                        initApp();
+                    } else {
+                        // Not in admin_users — show a clear message
+                        document.getElementById('loginOverlay').style.display = 'flex';
+                        document.getElementById('stepTelegram').style.display = 'none';
+                        var card = document.querySelector('.login-card');
+                        card.innerHTML =
+                            '<div class="login-logo">🚗 LEADGRAM</div>' +
+                            '<div style="margin-top:20px;text-align:center;">' +
+                            '<div style="font-size:52px;">⛔</div>' +
+                            '<p style="color:#f87171;font-size:15px;margin-top:12px;font-weight:600;">Нет доступа</p>' +
+                            '<p style="color:#94a3b8;font-size:13px;margin-top:8px;">Ваш Telegram ID (<code style="color:#7dd3fc;">' + tgUser.id + '</code>) не найден в списке администраторов.<br><br>Попросите владельца системы добавить вас.</p>' +
+                            '</div>';
+                    }
+                } catch(e) {
+                    // RPC doesn't exist yet — show helpful message
+                    document.getElementById('loginOverlay').style.display = 'flex';
+                    var card2 = document.querySelector('.login-card');
+                    card2.innerHTML =
+                        '<div class="login-logo">🚗 LEADGRAM</div>' +
+                        '<div style="margin-top:16px;background:rgba(251,191,36,0.1);border:1px solid #fbbf24;border-radius:10px;padding:14px;font-size:13px;color:#fcd34d;">' +
+                        '⚠️ Необходимо выполнить SQL-миграцию в Supabase.<br><br>' +
+                        '<code style="font-size:11px;color:#a3e635;">verify_admin_by_telegram</code> RPC не найден.<br><br>' +
+                        'Скопируйте SQL из сообщения выше и запустите в Supabase → SQL Editor.' +
+                        '</div>';
+                }
+            };
+        })();
 
         function _showLoginOverlay() {
             document.getElementById('loginOverlay').style.display = 'flex';
@@ -4722,6 +4878,12 @@
 
         // ── Check session on page load ─────────────────────────────────
         (async function checkAdminSession() {
+            // If opened as Telegram Mini App — use TG auth instead
+            if (IS_TG_MINIAPP && window._tgAdminInit) {
+                window._tgAdminInit();
+                return;
+            }
+
             var token = localStorage.getItem(AUTH_TOKEN_KEY);
 
             // Always show login overlay first
@@ -4906,5 +5068,25 @@
         });
 
     </script>
+
+    <!-- Telegram Mini App bottom navigation (hidden in browser mode) -->
+    <nav id="tgBottomNav">
+        <button class="tg-nav-btn active" id="tgNav-appointments" onclick="switchTab('appointments')">
+            <span class="tg-nav-icon">🚗</span><span data-ru="Записи" data-uz="Yozuvlar">Записи</span>
+        </button>
+        <button class="tg-nav-btn" id="tgNav-dashboard" onclick="switchTab('dashboard')">
+            <span class="tg-nav-icon">📊</span><span data-ru="Панель" data-uz="Panel">Панель</span>
+        </button>
+        <button class="tg-nav-btn" id="tgNav-reports" onclick="switchTab('reports')">
+            <span class="tg-nav-icon">📈</span><span data-ru="Отчёты" data-uz="Hisobot">Отчёты</span>
+        </button>
+        <button class="tg-nav-btn" id="tgNav-staff" onclick="switchTab('staff')">
+            <span class="tg-nav-icon">👷</span><span data-ru="Кадры" data-uz="Xodimlar">Кадры</span>
+        </button>
+        <button class="tg-nav-btn" id="tgNav-services" onclick="switchTab('services')">
+            <span class="tg-nav-icon">🧼</span><span data-ru="Услуги" data-uz="Xizmat">Услуги</span>
+        </button>
+    </nav>
+
 </body>
 </html>
