@@ -1233,15 +1233,49 @@
                     🚗 Записи
                 </span>
                 </button>
+                <button class="nav-tab" data-tab="approvals" data-ru="🔔 Брони" data-uz="🔔 Bronlar">🔔 Брони <span id="approvalsBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px;">0</span></button>
                 <button class="nav-tab" data-tab="dashboard" data-ru="📊 Панель управления" data-uz="📊 Boshqaruv paneli">📊 Панель управления</button>
                 <button class="nav-tab" data-tab="payments" data-ru="💳 Платежи" data-uz="💳 To'lovlar">💳 Платежи</button>
                 <button class="nav-tab" data-tab="services" data-ru="🧼 Услуги" data-uz="🧼 Xizmatlar">🧼 Услуги</button>
                 <button class="nav-tab" data-tab="locations" data-ru="📍 Филиалы" data-uz="📍 Filiallar">📍 Филиалы</button>
                 <button class="nav-tab" data-tab="reports" data-ru="📈 Отчёты" data-uz="📈 Hisobotlar">📈 Отчёты</button>
                 <button class="nav-tab" data-tab="staff" data-ru="👷 Сотрудники" data-uz="👷 Xodimlar">👷 Сотрудники</button>
+                <button class="nav-tab" data-tab="roles" data-ru="🔑 Роли" data-uz="🔑 Rollar">🔑 Роли</button>
                 <button class="nav-tab" data-tab="loyalty" data-ru="🎁 Лояльность" data-uz="🎁 Sodiqlik">🎁 Лояльность</button>
             </div>
         </nav>
+
+        <!-- Approvals (customer bookings) Section -->
+        <div id="approvals" class="content-section">
+            <div class="section-header">
+                <h2 class="section-title" data-ru="🔔 Заявки на бронь" data-uz="🔔 Bron arizalari">🔔 Заявки на бронь</h2>
+                <button class="btn btn-secondary" onclick="loadPendingBookings()"><span data-ru="🔄 Обновить" data-uz="🔄 Yangilash">🔄 Обновить</span></button>
+            </div>
+            <p style="color:var(--light-gray);font-size:14px;margin-bottom:16px;" data-ru="Новые заявки от клиентов из бота. Подтвердите или отклоните — клиент получит уведомление." data-uz="Botdan kelgan yangi arizalar. Tasdiqlang yoki rad eting — mijoz xabar oladi.">Новые заявки от клиентов из бота. Подтвердите или отклоните — клиент получит уведомление.</p>
+            <div id="approvalsList"></div>
+        </div>
+
+        <!-- Roles / Access Section -->
+        <div id="roles" class="content-section">
+            <div class="section-header">
+                <h2 class="section-title" data-ru="🔑 Роли и доступ" data-uz="🔑 Rollar va kirish">🔑 Роли и доступ</h2>
+                <button class="btn btn-primary" onclick="openAddStaff()"><span data-ru="➕ Добавить сотрудника" data-uz="➕ Xodim qo'shish">➕ Добавить сотрудника</span></button>
+            </div>
+            <p style="color:var(--light-gray);font-size:14px;margin-bottom:16px;" data-ru="Только сотрудники со статусом «Доступ включён» могут открыть приложение мойщика. Роль определяет права." data-uz="Faqat «Kirish yoqilgan» xodimlar yuvuvchi ilovasini ocha oladi.">Только сотрудники со статусом «Доступ включён» могут открыть приложение мойщика. Роль определяет права.</p>
+            <div class="table-container">
+                <table>
+                    <thead><tr>
+                        <th data-ru="Имя" data-uz="Ism">Имя</th>
+                        <th>@username</th>
+                        <th data-ru="Роль" data-uz="Rol">Роль</th>
+                        <th data-ru="Доступ к приложению" data-uz="Ilovaga kirish">Доступ к приложению</th>
+                        <th data-ru="Действия" data-uz="Amallar">Действия</th>
+                    </tr></thead>
+                    <tbody id="rolesTableBody"></tbody>
+                </table>
+            </div>
+            <div id="rolesMobileCards" class="mob-only"></div>
+        </div>
 
         <!-- Dashboard Section -->
         <div id="dashboard" class="content-section">
@@ -1515,7 +1549,7 @@
                             <th data-ru="Услуга" data-uz="Xizmat">Услуга</th>
                             <th data-ru="Сумма" data-uz="Summa">Сумма</th>
                             <th data-ru="Метод" data-uz="Usul">Метод</th>
-                            <th data-ru="Филиал" data-uz="Filial">Филиал</th>
+                            <th data-ru="Мойщик" data-uz="Yuvuvchi">Мойщик</th>
                             <th data-ru="Дата" data-uz="Sana">Дата</th>
                             <th data-ru="Статус" data-uz="Holati">Статус</th>
                         </tr>
@@ -1574,7 +1608,7 @@
                             <th data-ru="Название" data-uz="Nomi">Название</th>
                             <th data-ru="Адрес" data-uz="Manzil">Адрес</th>
                             <th data-ru="Телефон" data-uz="Telefon">Телефон</th>
-                            <th data-ru="Выручка сегодня" data-uz="Bugungi daromad">Выручка сегодня</th>
+                            <th data-ru="Часы работы" data-uz="Ish vaqti">Часы работы</th>
                             <th data-ru="Статус" data-uz="Holati">Статус</th>
                             <th data-ru="Действия" data-uz="Harakatlar">Действия</th>
                         </tr>
@@ -1873,10 +1907,17 @@
                 <div class="form-group"><label data-ru="Оклад в месяц (сум)" data-uz="Oylik oklad (so'm)">Оклад в месяц (сум)</label><input id="staffSalary" type="number" style="width:100%;"></div>
                 <div class="form-group"><label data-ru="Бонус за машину (сум)" data-uz="Mashina uchun bonus (so'm)">Бонус за машину (сум)</label><input id="staffPerCar" type="number" style="width:100%;"></div>
                 <div class="form-group"><label data-ru="Часы работы (напр. 09:00–18:00)" data-uz="Ish soatlari">Часы работы</label><input id="staffHours" placeholder="09:00–18:00" style="width:100%;"></div>
-                <div class="form-group"><label data-ru="Статус" data-uz="Holat">Статус</label>
+                <div class="form-group"><label data-ru="Роль" data-uz="Rol">Роль</label>
+                    <select id="staffRole" style="width:100%;">
+                        <option value="worker" data-ru="🧽 Мойщик" data-uz="🧽 Yuvuvchi">🧽 Мойщик</option>
+                        <option value="manager" data-ru="🧑‍💼 Менеджер" data-uz="🧑‍💼 Menejer">🧑‍💼 Менеджер</option>
+                        <option value="owner" data-ru="👑 Владелец" data-uz="👑 Egasi">👑 Владелец</option>
+                    </select>
+                </div>
+                <div class="form-group"><label data-ru="Доступ к приложению" data-uz="Ilovaga kirish">Доступ к приложению</label>
                     <select id="staffActive" style="width:100%;">
-                        <option value="true" data-ru="Работает" data-uz="Ishlayapti">Работает</option>
-                        <option value="false" data-ru="Уволен" data-uz="Ishdan bo'shagan">Уволен</option>
+                        <option value="true" data-ru="✅ Включён (может открыть приложение)" data-uz="✅ Yoqilgan">✅ Включён (может открыть приложение)</option>
+                        <option value="false" data-ru="🚫 Выключен (нет доступа)" data-uz="🚫 O'chirilgan">🚫 Выключен (нет доступа)</option>
                     </select>
                 </div>
                 <div style="display:flex;gap:12px;justify-content:center;margin-top:18px;">
@@ -2360,6 +2401,14 @@
                 <div class="form-group">
                     <label data-ru="Телефон" data-uz="Telefon">Телефон</label>
                     <input type="tel" id="locPhone" placeholder="+998 71 123 4567">
+                </div>
+                <div class="form-group">
+                    <label data-ru="Часы работы" data-uz="Ish vaqti">Часы работы</label>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <input type="time" id="locOpen" value="09:00" style="flex:1;">
+                        <span>—</span>
+                        <input type="time" id="locClose" value="21:00" style="flex:1;">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label data-ru="Статус" data-uz="Holati">Статус</label>
@@ -3573,17 +3622,22 @@
             var tbody    = document.querySelector('#payments tbody');
             if (!tbody) return;
             var L = currentLang === 'uz';
+            // Build a booking_id → washer lookup so payments can show who washed
+            var bookingsW = DB.load('crm_bookings', []);
+            var washerBy = {};
+            bookingsW.forEach(function(b){ washerBy[b.id] = b.washer || b.washed_by || ''; });
             // payments sorted by date desc; id is the same as booking_id
             var sorted = payments.slice().sort(function(a, b){ return (b.created_at||'').localeCompare(a.created_at||''); });
             tbody.innerHTML = sorted.length
                 ? sorted.map(function(p) {
+                    var washer = washerBy[p.booking_id] || '';
                     return '<tr>' +
                     '<td style="font-size:12px;color:var(--light-gray);">' + p.booking_id + '</td>' +
                     '<td><strong>' + p.license_plate + '</strong></td>' +
                     '<td>' + svcLabel(p.service_key, p.service_label) + '</td>' +
                     '<td>' + p.amount.toLocaleString() + ' сум</td>' +
                     '<td>' + payLabel(p.payment_type) + '</td>' +
-                    '<td>—</td>' +
+                    '<td>' + (washer ? '👷 ' + washer : '—') + '</td>' +
                     '<td>' + fmtDate(p.date) + '</td>' +
                     '<td>' + statusBadge(p.payment_status) + '</td>' +
                     '</tr>';
@@ -4170,6 +4224,147 @@
             updateDashboard();
             updateReports();
             renderStaff();
+            renderRoles();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //   CUSTOMER BOOKING APPROVALS
+        // ═══════════════════════════════════════════════════════════════
+        var _pendingBookings = [];
+
+        async function loadPendingBookings() {
+            if (!_sb) return;
+            try {
+                var res = await _sb.rpc('get_pending_bookings');
+                _pendingBookings = (!res.error && Array.isArray(res.data)) ? res.data : [];
+            } catch(e) { console.warn('loadPendingBookings:', e); _pendingBookings = []; }
+            renderApprovals();
+        }
+
+        function renderApprovals() {
+            var L = currentLang === 'uz';
+            var badge = document.getElementById('approvalsBadge');
+            if (badge) {
+                badge.textContent = _pendingBookings.length;
+                badge.style.display = _pendingBookings.length ? 'inline-block' : 'none';
+            }
+            var box = document.getElementById('approvalsList');
+            if (!box) return;
+            if (!_pendingBookings.length) {
+                box.innerHTML = '<div style="text-align:center;padding:50px;color:var(--light-gray);">🎉 ' + (L?"Yangi arizalar yo'q":'Новых заявок нет') + '</div>';
+                return;
+            }
+            box.innerHTML = _pendingBookings.map(function(b){
+                var svcName = svcLabel(b.service, b.service_name);
+                return '<div class="mob-card" style="border-left:4px solid #f59e0b;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+                        '<span style="font-family:monospace;font-weight:800;font-size:18px;">' + (b.plate||'—').replace(' | ',' ') + '</span>' +
+                        '<span class="badge badge-warning">⏳ ' + (L?'Kutilmoqda':'Ожидает') + '</span>' +
+                    '</div>' +
+                    '<div style="margin-top:8px;font-size:14px;color:var(--light-gray);display:flex;flex-direction:column;gap:4px;">' +
+                        '<span>📍 <strong style="color:var(--light);">' + (b.branch||'—') + '</strong></span>' +
+                        '<span>🧼 ' + svcName + ' · <strong style="color:var(--light);">' + (b.amount||0).toLocaleString() + ' сум</strong></span>' +
+                        '<span>🗓️ ' + (b.req_date||'') + ' ' + (b.req_time||'') + '</span>' +
+                        (b.phone ? '<span>📞 <a href="tel:' + b.phone + '">' + b.phone + '</a></span>' : '') +
+                    '</div>' +
+                    '<div style="display:flex;gap:8px;margin-top:12px;">' +
+                        '<button class="btn btn-primary" style="flex:1;background:#10b981;" onclick="approveBooking(\'' + b.id + '\')">✅ ' + (L?'Tasdiqlash':'Подтвердить') + '</button>' +
+                        '<button class="btn" style="flex:1;background:#ef4444;color:#fff;" onclick="declineBooking(\'' + b.id + '\')">❌ ' + (L?'Rad etish':'Отклонить') + '</button>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        async function approveBooking(id) {
+            var L = currentLang === 'uz';
+            try {
+                var res = await _sb.rpc('set_booking_status', { p_id:id, p_status:'approved', p_reason:'' });
+                if (res.error) throw res.error;
+                showToast(L ? 'Tasdiqlandi ✓' : 'Подтверждено ✓');
+                loadPendingBookings();
+                sbLoadAll();   // pull the now-approved booking into the queue
+            } catch(e) { showToast((L?'Xato: ':'Ошибка: ')+e.message, true); }
+        }
+
+        async function declineBooking(id) {
+            var L = currentLang === 'uz';
+            var reason = prompt(L ? 'Sababi (ixtiyoriy):' : 'Причина отказа (необязательно):', '');
+            if (reason === null) return;   // cancelled
+            try {
+                var res = await _sb.rpc('set_booking_status', { p_id:id, p_status:'declined', p_reason:reason||'' });
+                if (res.error) throw res.error;
+                showToast(L ? 'Rad etildi' : 'Отклонено');
+                loadPendingBookings();
+            } catch(e) { showToast((L?'Xato: ':'Ошибка: ')+e.message, true); }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //   ROLES / ACCESS
+        // ═══════════════════════════════════════════════════════════════
+        var ROLE_LABELS = { owner:'👑 Владелец', manager:'🧑‍💼 Менеджер', worker:'🧽 Мойщик' };
+        var ROLE_LABELS_UZ = { owner:'👑 Egasi', manager:'🧑‍💼 Menejer', worker:'🧽 Yuvuvchi' };
+
+        function renderRoles() {
+            var L = currentLang === 'uz';
+            var staff = _staffCache.length ? _staffCache : DB.load('crm_staff', []);
+            var labels = L ? ROLE_LABELS_UZ : ROLE_LABELS;
+            var tbody = document.getElementById('rolesTableBody');
+            var mob = document.getElementById('rolesMobileCards');
+
+            function accessCell(w) {
+                return w.active
+                    ? '<span class="badge badge-success">✅ ' + (L?'Yoqilgan':'Включён') + '</span>'
+                    : '<span class="badge badge-danger">🚫 ' + (L?'O\'chirilgan':'Выключен') + '</span>';
+            }
+            function toggleBtn(w) {
+                return '<button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="toggleAccess(\'' + (w.telegram_username||'') + '\')">' +
+                    (w.active ? '🚫 ' + (L?'Bloklash':'Отключить') : '✅ ' + (L?'Ruxsat':'Включить')) + '</button>';
+            }
+
+            if (tbody) {
+                tbody.innerHTML = staff.length ? staff.map(function(w){
+                    return '<tr' + (w.active?'':' style="opacity:0.55;"') + '>' +
+                        '<td><strong>' + (w.name||'—') + '</strong></td>' +
+                        '<td>@' + (w.telegram_username||'') + '</td>' +
+                        '<td>' + (labels[w.role||'worker']||labels.worker) + '</td>' +
+                        '<td>' + accessCell(w) + '</td>' +
+                        '<td style="white-space:nowrap;">' + toggleBtn(w) +
+                            ' <button class="action-btn" onclick=\'openEditStaff(' + JSON.stringify(w) + ')\'>✏️</button></td>' +
+                    '</tr>';
+                }).join('') : '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--light-gray);">' + (L?"Ma'lumot yo'q":'Нет сотрудников') + '</td></tr>';
+            }
+            if (mob) {
+                mob.innerHTML = staff.map(function(w){
+                    return '<div class="mob-card">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                            '<div><div style="font-weight:700;">' + (w.name||'—') + '</div>' +
+                            '<div style="font-size:12px;color:var(--light-gray);">@' + (w.telegram_username||'') + '</div></div>' +
+                            accessCell(w) +
+                        '</div>' +
+                        '<div style="margin-top:8px;font-size:14px;">' + (labels[w.role||'worker']||labels.worker) + '</div>' +
+                        '<div style="display:flex;gap:8px;margin-top:10px;">' + toggleBtn(w) +
+                            '<button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick=\'openEditStaff(' + JSON.stringify(w) + ')\'>✏️</button></div>' +
+                    '</div>';
+                }).join('');
+            }
+        }
+
+        async function toggleAccess(uname) {
+            var L = currentLang === 'uz';
+            var staff = _staffCache.length ? _staffCache : DB.load('crm_staff', []);
+            var w = staff.find(function(x){ return (x.telegram_username||'') === uname; });
+            if (!w) return;
+            var newActive = !w.active;
+            try {
+                var res = await _sb.rpc('save_staff', {
+                    p_token: localStorage.getItem(AUTH_TOKEN_KEY),
+                    p_username: uname, p_name: w.name||'', p_salary: w.salary||0,
+                    p_per_car: w.per_car||0, p_work_hours: w.work_hours||'', p_active: newActive
+                });
+                if (res.error || (res.data && res.data.error)) throw new Error(res.error?.message || res.data.error);
+                showToast(newActive ? (L?'Ruxsat berildi ✓':'Доступ включён ✓') : (L?'Bloklandi':'Доступ выключен'));
+                loadStaff();
+            } catch(e) { showToast((L?'Xato: ':'Ошибка: ')+e.message, true); }
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -4366,6 +4561,7 @@
             document.getElementById('staffPerCar').value  = '';
             document.getElementById('staffHours').value   = '';
             document.getElementById('staffActive').value  = 'true';
+            var rEl = document.getElementById('staffRole'); if (rEl) rEl.value = 'worker';
             var t = document.getElementById('staffModalTitle');
             if (t) t.textContent = currentLang === 'uz' ? "Xodim qo'shish" : 'Добавить сотрудника';
             openModal('staffModal');
@@ -4379,6 +4575,7 @@
             document.getElementById('staffPerCar').value  = w.per_car || '';
             document.getElementById('staffHours').value   = w.work_hours || '';
             document.getElementById('staffActive').value  = w.active ? 'true' : 'false';
+            var rEl = document.getElementById('staffRole'); if (rEl) rEl.value = w.role || 'worker';
             var t = document.getElementById('staffModalTitle');
             if (t) t.textContent = (currentLang === 'uz' ? 'Tahrirlash' : 'Редактировать') + ': ' + (w.name||'');
             openModal('staffModal');
@@ -4398,9 +4595,13 @@
                 p_work_hours: document.getElementById('staffHours').value.trim(),
                 p_active:     document.getElementById('staffActive').value === 'true'
             };
+            var role = (document.getElementById('staffRole') || {}).value || 'worker';
             try {
                 var res = await _sb.rpc('save_staff', payload);
                 if (res.error || (res.data && res.data.error)) throw new Error(res.error?.message || res.data.error);
+                // Save role separately (keeps save_staff signature intact)
+                try { await _sb.rpc('set_worker_role', { p_token: payload.p_token, p_username: user, p_role: role }); }
+                catch(re) { console.warn('set_worker_role:', re); }
                 closeModal('staffModal');
                 showToast(L ? 'Saqlandi ✓' : 'Сохранено ✓');
                 loadStaff();
@@ -4683,6 +4884,7 @@
                         '</div>' +
                         '<div class="mob-card-row"><span>📍 ' + loc.address + '</span></div>' +
                         '<div class="mob-card-row"><span>📞 ' + loc.phone + '</span></div>' +
+                        '<div class="mob-card-row"><span>🕒 ' + (loc.work_open||'09:00') + '–' + (loc.work_close||'21:00') + '</span></div>' +
                         '<div class="mob-card-actions">' +
                             '<button class="btn" style="background:var(--bg-main);color:var(--light);border:1px solid var(--border);" onclick="openEditLocation(\'' + loc.id + '\')">✏️ ' + (L?'Tahrirlash':'Изменить') + '</button>' +
                             '<button class="btn" style="background:#ef4444;color:#fff;" onclick="deleteLocation(\'' + loc.id + '\')">🗑️</button>' +
@@ -4704,7 +4906,7 @@
                     '<td><strong>' + loc.name + '</strong></td>' +
                     '<td style="font-size:13px;">' + loc.address + '</td>' +
                     '<td>' + loc.phone + '</td>' +
-                    '<td style="color:var(--light-gray);">—</td>' +
+                    '<td style="white-space:nowrap;">🕒 ' + (loc.work_open||'09:00') + '–' + (loc.work_close||'21:00') + '</td>' +
                     '<td>' + statusBadgeHtml + '</td>' +
                     '<td style="white-space:nowrap;">' +
                         '<button class="action-btn" title="' + (L ? 'Tahrirlash' : 'Редактировать') + '" onclick="openEditLocation(\'' + loc.id + '\')">✏️</button>' +
@@ -4720,6 +4922,8 @@
             document.getElementById('locAddress').value = '';
             document.getElementById('locPhone').value   = '';
             document.getElementById('locStatus').value  = 'open';
+            document.getElementById('locOpen').value    = '09:00';
+            document.getElementById('locClose').value   = '21:00';
             var t = document.getElementById('locModalTitle');
             if (t) t.textContent = currentLang === 'uz' ? "Filial qo'shish" : 'Добавить филиал';
             openModal('locationModal');
@@ -4735,6 +4939,8 @@
             document.getElementById('locAddress').value = loc.address || '';
             document.getElementById('locPhone').value   = loc.phone   || '';
             document.getElementById('locStatus').value  = loc.status  || 'open';
+            document.getElementById('locOpen').value    = loc.work_open  || '09:00';
+            document.getElementById('locClose').value   = loc.work_close || '21:00';
             var t = document.getElementById('locModalTitle');
             if (t) t.textContent = (currentLang === 'uz' ? 'Filialni tahrirlash' : 'Редактировать филиал') + ': ' + loc.name;
             openModal('locationModal');
@@ -4747,23 +4953,36 @@
             var addr = document.getElementById('locAddress').value.trim();
             var ph   = document.getElementById('locPhone').value.trim();
             var st   = document.getElementById('locStatus').value;
+            var wo   = document.getElementById('locOpen').value  || '09:00';
+            var wc   = document.getElementById('locClose').value || '21:00';
             if (!name) { showToast(L ? 'Filial nomini kiriting!' : 'Введите название!', true); return; }
             var locs = getLocList();
+            var savedId = id;
             if (id) {
                 // edit
                 for (var i = 0; i < locs.length; i++) {
-                    if (locs[i].id === id) { locs[i].name = name; locs[i].address = addr; locs[i].phone = ph; locs[i].status = st; break; }
+                    if (locs[i].id === id) { locs[i].name = name; locs[i].address = addr; locs[i].phone = ph; locs[i].status = st; locs[i].work_open = wo; locs[i].work_close = wc; break; }
                 }
                 showToast(L ? 'Filial yangilandi ✓' : 'Филиал обновлён ✓');
             } else {
                 // add
-                var newId = 'F' + Date.now().toString().slice(-6);
-                locs.push({ id:newId, name:name, address:addr, phone:ph, status:st });
+                savedId = 'F' + Date.now().toString().slice(-6);
+                locs.push({ id:savedId, name:name, address:addr, phone:ph, status:st, work_open:wo, work_close:wc });
                 showToast(L ? "Filial qo'shildi ✓" : 'Филиал добавлен ✓');
             }
             DB.save('crm_locations', locs);
             closeModal('locationModal');
             renderLocations();
+
+            // Sync to Supabase branches so the customer booking app sees it
+            if (_sb) {
+                _sb.rpc('admin_save_branch', {
+                    p_token: localStorage.getItem(AUTH_TOKEN_KEY),
+                    p_id: savedId, p_name: name, p_address: addr, p_phone: ph,
+                    p_work_open: wo, p_work_close: wc, p_active: (st === 'open'), p_sort: 0
+                }).then(function(r){ if (r && r.error) console.warn('admin_save_branch:', r.error); },
+                        function(e){ console.warn('admin_save_branch:', e); });
+            }
         }
 
         function deleteLocation(id) {
@@ -5152,7 +5371,9 @@
             sbLoadAll();
             loadStaff();               // staff list + salaries (admin-only)
             loadServicesFromCloud();   // shared catalog (same as worker app)
+            loadPendingBookings();     // customer booking requests
             setInterval(function() { autoUpdateWorkflow(); }, 30000);
+            setInterval(function() { loadPendingBookings(); }, 20000);  // poll for new bookings
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -5496,6 +5717,9 @@
         <button class="tg-nav-btn active" id="tgNav-appointments" onclick="switchTab('appointments')">
             <span class="tg-nav-icon">🚗</span><span data-ru="Записи" data-uz="Yozuvlar">Записи</span>
         </button>
+        <button class="tg-nav-btn" id="tgNav-approvals" onclick="switchTab('approvals')">
+            <span class="tg-nav-icon">🔔</span><span data-ru="Брони" data-uz="Bronlar">Брони</span>
+        </button>
         <button class="tg-nav-btn" id="tgNav-dashboard" onclick="switchTab('dashboard')">
             <span class="tg-nav-icon">📊</span><span data-ru="Панель" data-uz="Panel">Панель</span>
         </button>
@@ -5507,6 +5731,9 @@
         </button>
         <button class="tg-nav-btn" id="tgNav-staff" onclick="switchTab('staff')">
             <span class="tg-nav-icon">👷</span><span data-ru="Кадры" data-uz="Xodimlar">Кадры</span>
+        </button>
+        <button class="tg-nav-btn" id="tgNav-roles" onclick="switchTab('roles')">
+            <span class="tg-nav-icon">🔑</span><span data-ru="Роли" data-uz="Rollar">Роли</span>
         </button>
         <button class="tg-nav-btn" id="tgNav-services" onclick="switchTab('services')">
             <span class="tg-nav-icon">🧼</span><span data-ru="Услуги" data-uz="Xizmat">Услуги</span>
