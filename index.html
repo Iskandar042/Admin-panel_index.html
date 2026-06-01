@@ -1288,27 +1288,22 @@
                 <input type="text" class="search-input" placeholder="Поиск по номеру, марке или модели..." id="bookingSearch" data-placeholder-ru="Поиск по номеру, марке или модели..." data-placeholder-uz="Raqam, marka yoki model bo'yicha qidirish...">
                 <span class="search-icon">🔍</span>
             </div>
-            <div style="display:flex; gap:15px; margin-bottom:25px; flex-wrap:wrap;">
+            <div style="display:flex; gap:15px; margin-bottom:25px; flex-wrap:wrap;" id="bookingFilterBtns">
 
-                <button class="btn btn-secondary">
-                    <span data-ru="🚗 Очередь сегодня"
-                        data-uz="🚗 Bugungi navbat">
-                        🚗 Очередь сегодня
-                    </span>
+                <button class="btn btn-secondary" id="bfBtn-all" onclick="setBookingFilter('all')" style="border-color:var(--primary);background:var(--gradient-1);color:white;">
+                    <span data-ru="📋 Все записи" data-uz="📋 Barcha yozuvlar">📋 Все записи</span>
                 </button>
 
-                <button class="btn btn-secondary">
-                    <span data-ru="⏰ Ближайшие записи"
-                        data-uz="⏰ Yaqin yozuvlar">
-                        ⏰ Ближайшие записи
-                    </span>
+                <button class="btn btn-secondary" id="bfBtn-today" onclick="setBookingFilter('today')">
+                    <span data-ru="🚗 Очередь сегодня" data-uz="🚗 Bugungi navbat">🚗 Очередь сегодня</span>
                 </button>
 
-                <button class="btn btn-secondary">
-                    <span data-ru="💳 Неоплаченные"
-                        data-uz="💳 To'lanmaganlar">
-                        💳 Неоплаченные
-                    </span>
+                <button class="btn btn-secondary" id="bfBtn-upcoming" onclick="setBookingFilter('upcoming')">
+                    <span data-ru="⏰ Ближайшие (2ч)" data-uz="⏰ Yaqin (2s)">⏰ Ближайшие (2ч)</span>
+                </button>
+
+                <button class="btn btn-secondary" id="bfBtn-unpaid" onclick="setBookingFilter('unpaid')">
+                    <span data-ru="💳 Неоплаченные" data-uz="💳 To'lanmaganlar">💳 Неоплаченные</span>
                 </button>
 
             </div>
@@ -1724,14 +1719,13 @@
             <div class="table-container" style="overflow-x:auto;">
                 <table>
                     <thead><tr>
-                        <th data-ru="Имя" data-uz="Ism">Имя</th>
-                        <th>@username</th>
-                        <th data-ru="Часы" data-uz="Soatlar">Часы</th>
-                        <th data-ru="Машин помыто" data-uz="Yuvilgan">Машин помыто</th>
+                        <th data-ru="Сотрудник" data-uz="Xodim">Сотрудник</th>
+                        <th data-ru="Отработано" data-uz="Ishlangan">Отработано</th>
+                        <th data-ru="Машин" data-uz="Mashinalar">Машин</th>
                         <th data-ru="Оклад" data-uz="Oklad">Оклад</th>
                         <th data-ru="За машину" data-uz="Mashinaga">За машину</th>
                         <th data-ru="Итого" data-uz="Jami">Итого</th>
-                        <th data-ru="Зарплата" data-uz="Maosh">Зарплата</th>
+                        <th data-ru="Выплата" data-uz="Maosh">Выплата</th>
                         <th data-ru="Действия" data-uz="Amallar">Действия</th>
                     </tr></thead>
                     <tbody id="staffTableBody"></tbody>
@@ -3074,7 +3068,7 @@
                     payment_type: r.payment_type || 'cash',
                     washed_by:    r.washed_by    || '',
                     phone:null,
-                    date:tashDate(r.created_at), time:tashTime(r.created_at), duration:30, wash_time:(r.wash_time||''), notes:'', washer:'', manual_override:false
+                    date:tashDate(r.created_at), time:tashTime(r.created_at), duration:30, wash_time:(r.wash_time||''), notes:'', washer: r.washed_by || '', manual_override:false
                 }, getExtras(r.id));
             },
 
@@ -3296,6 +3290,19 @@
             return (b.duration || 30) + ' ' + unit;
         }
 
+        var _bookingFilter = 'all';
+
+        function setBookingFilter(f) {
+            _bookingFilter = f;
+            document.querySelectorAll('#bookingFilterBtns .btn').forEach(function(btn) {
+                var isActive = btn.id === 'bfBtn-' + f;
+                btn.style.background    = isActive ? 'var(--gradient-1)' : '';
+                btn.style.color         = isActive ? 'white' : '';
+                btn.style.borderColor   = isActive ? 'var(--primary)' : '';
+            });
+            renderBookings();
+        }
+
         // ── Render: Appointments ──────────────────────────────────────
         function renderBookings() {
             var bookings = DB.load('crm_bookings', []);
@@ -3303,8 +3310,28 @@
             if (!tbody) return;
             var term = (document.getElementById('bookingSearch') ? document.getElementById('bookingSearch').value : '').toLowerCase();
             var L = currentLang === 'uz';
+            var today = todayTash();
+            var nowMs = Date.now();
+
             var list = bookings
                 .filter(function(b){ return !term || JSON.stringify(b).toLowerCase().includes(term); })
+                .filter(function(b) {
+                    if (_bookingFilter === 'today') {
+                        return rowDate(b) === today;
+                    }
+                    if (_bookingFilter === 'upcoming') {
+                        // Show bookings whose wash_time is within the next 2 hours (today only)
+                        if (rowDate(b) !== today) return false;
+                        if (!b.wash_time && !b.time) return true; // no time set, show all today's
+                        var t = b.wash_time || b.time;
+                        var tMs = new Date(today + 'T' + t + ':00').getTime();
+                        return tMs >= nowMs && tMs <= nowMs + 2 * 3600 * 1000;
+                    }
+                    if (_bookingFilter === 'unpaid') {
+                        return b.payment_status !== 'paid';
+                    }
+                    return true; // 'all'
+                })
                 .sort(function(a, b){ return b.created_at.localeCompare(a.created_at); });
             tbody.innerHTML = list.length
                 ? list.map(function(b) {
@@ -3921,14 +3948,26 @@
             var tbody = document.getElementById('staffTableBody');
             if (!tbody) return;
 
-            // Count cars washed per worker this month (bookings done, washed_by set)
+            // Count cars washed + actual worked minutes per worker this month
             var bookings = DB.load('crm_bookings', []);
-            var carsBy = {};
+            var carsBy = {}, minsBy = {};
             bookings.forEach(function(b){
-                if ((b.workflow_status||'') === 'done' && b.washed_by &&
-                    rowDate(b).slice(0,7) === month) {
-                    var u = String(b.washed_by).toLowerCase();
-                    carsBy[u] = (carsBy[u]||0) + 1;
+                var workerKey = (b.washed_by || b.washer || '').toLowerCase().trim();
+                if (!workerKey) return;
+                var bDate = rowDate(b);
+                // month filter: match the selected month (first 7 chars)
+                if (bDate.slice(0,7) !== month) return;
+                if ((b.workflow_status||'') === 'done') {
+                    carsBy[workerKey] = (carsBy[workerKey]||0) + 1;
+                    // Actual duration: wash_started_at → wash_finished_at if available, else b.duration
+                    var mins = 0;
+                    if (b.wash_started_at && b.wash_finished_at) {
+                        mins = Math.max(0, Math.round(
+                            (new Date(b.wash_finished_at) - new Date(b.wash_started_at)) / 60000));
+                    } else {
+                        mins = b.duration || 30;
+                    }
+                    minsBy[workerKey] = (minsBy[workerKey]||0) + mins;
                 }
             });
 
@@ -3939,8 +3978,18 @@
             var active = 0, payroll = 0, paidSum = 0, unpaidSum = 0;
 
             tbody.innerHTML = (staff.length ? staff : []).map(function(w){
-                var uname = (w.telegram_username||'').toLowerCase();
-                var cars  = carsBy[uname] || 0;
+                var uname  = (w.telegram_username||'').toLowerCase();
+                var cars   = carsBy[uname] || 0;
+                var workedMins = minsBy[uname] || 0;
+                var workedH    = Math.floor(workedMins / 60);
+                var workedM    = workedMins % 60;
+                var workedStr  = workedMins > 0
+                    ? (workedH > 0 ? workedH + (L?' soat ':' ч ') : '') + (workedM > 0 ? workedM + (L?' daq':' мин') : '')
+                    : '—';
+                var scheduleStr = w.work_hours ? '<span style="font-size:11px;color:var(--light-gray);">📅 ' + w.work_hours + '</span>' : '';
+                var hoursCell = workedMins > 0
+                    ? '<span style="font-weight:700;color:#2563eb;">⏱ ' + workedStr.trim() + '</span>' + (scheduleStr ? '<br>' + scheduleStr : '')
+                    : (scheduleStr || '—');
                 var base  = w.salary  || 0;
                 var perCar= w.per_car || 0;
                 var bonus = cars * perCar;
@@ -3952,23 +4001,26 @@
                     if (isPaid) paidSum += total; else unpaidSum += total;
                 }
                 var payBtn = isPaid
-                    ? '<span class="badge" style="background:#d1fae5;color:#065f46;">' + (L?"To'langan":'Выплачено') + '</span>'
-                    : '<button class="action-btn" title="' + (L?"To'langan deb belgilash":'Отметить выплату') + '" onclick="toggleSalaryPaid(\'' + uname + '\')">💵</button>';
+                    ? '<div style="display:flex;align-items:center;gap:6px;">' +
+                        '<span class="badge" style="background:#d1fae5;color:#065f46;padding:5px 10px;">✅ ' + (L?"To'langan":'Выплачено') + '</span>' +
+                        '<button class="action-btn" title="' + (L?"Qaytarish":'Отменить') + '" onclick="toggleSalaryPaid(\'' + uname + '\')" style="font-size:12px;color:#ef4444;">↩️</button>' +
+                      '</div>'
+                    : '<button class="btn" style="background:#6366f1;color:#fff;padding:7px 14px;font-size:13px;" onclick="toggleSalaryPaid(\'' + uname + '\')">' +
+                        '💵 ' + (L?"To'lash":'Выплатить') + '</button>';
                 return '<tr' + (w.active ? '' : ' style="opacity:0.5;"') + '>' +
-                    '<td><strong>' + (w.name||'—') + '</strong></td>' +
-                    '<td>@' + (w.telegram_username||'') + '</td>' +
-                    '<td>' + (w.work_hours||'—') + '</td>' +
-                    '<td style="text-align:center;font-weight:700;">' + cars + '</td>' +
-                    '<td>' + base.toLocaleString() + '</td>' +
-                    '<td>' + perCar.toLocaleString() + '</td>' +
-                    '<td style="font-weight:700;color:var(--primary);">' + total.toLocaleString() + unit + '</td>' +
+                    '<td><strong>' + (w.name||'—') + '</strong><br><span style="font-size:11px;color:var(--light-gray);">@' + (w.telegram_username||'') + '</span></td>' +
+                    '<td>' + hoursCell + '</td>' +
+                    '<td style="text-align:center;font-weight:700;font-size:18px;">' + cars + '</td>' +
+                    '<td>' + base.toLocaleString() + unit + '</td>' +
+                    '<td>' + perCar.toLocaleString() + unit + '</td>' +
+                    '<td style="font-weight:700;color:var(--primary);font-size:16px;">' + total.toLocaleString() + unit + '</td>' +
                     '<td>' + payBtn + '</td>' +
                     '<td style="white-space:nowrap;">' +
                         '<button class="action-btn" onclick=\'openEditStaff(' + JSON.stringify(w) + ')\'>✏️</button>' +
                         '<button class="action-btn danger" onclick="deleteStaff(\'' + (w.telegram_username||'') + '\')">🗑️</button>' +
                     '</td>' +
                 '</tr>';
-            }).join('') || '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--light-gray);">' + (L?"Ma'lumot yo'q":'Нет данных') + '</td></tr>';
+            }).join('') || '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--light-gray);">' + (L?"Ma'lumot yo'q":'Нет данных') + '</td></tr>';
 
             function set(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; }
             set('staff-active', active);
@@ -4065,6 +4117,12 @@
                     prvEl.textContent = pts + ' ' + (currentLang === 'uz' ? 'ball' : 'баллов');
                 });
             }
+            // Booking search
+            var bs = document.getElementById('bookingSearch');
+            if (bs) {
+                bs.addEventListener('input', function() { renderBookings(); });
+            }
+
             // Loyalty search
             var ls = document.getElementById('loyaltySearch');
             if (ls) {
@@ -4406,7 +4464,10 @@
                 return { from: d.toISOString().slice(0,10), to: today };
             }
             if (_reportPeriod === 'month') {
-                return { from: today.slice(0,7) + '-01', to: today };
+                // Use last 30 days (rolling window) so месяц is always >= неделя
+                var d = new Date(today + 'T00:00:00');
+                d.setDate(d.getDate() - 29);
+                return { from: d.toISOString().slice(0,10), to: today };
             }
             return { from: today, to: today };  // day
         }
