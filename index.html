@@ -828,21 +828,35 @@
         /* Hide tables in mini app — JS renders cards instead */
         body.tg-miniapp .table-container { display: none; }
         body.tg-miniapp #mobileCards     { display: block; }
+        /* Staff mobile cards: hidden on desktop, shown in mini app */
+        #staffMobileCards                 { display: none; }
+        body.tg-miniapp #staffMobileCards { display: block; }
         /* Search bar */
         body.tg-miniapp .search-bar   { margin-bottom: 10px; }
         body.tg-miniapp .search-input { padding: 10px 14px; font-size: 14px; border-radius: 10px; }
         /* Filter buttons */
         body.tg-miniapp #bookingFilterBtns .btn { padding: 8px 12px; font-size: 12px; border-radius: 10px; }
-        /* Hero header in appointments */
-        body.tg-miniapp #appointments > div:first-child { padding: 16px; border-radius: 14px; margin-bottom: 12px; }
-        body.tg-miniapp #appointments > div:first-child h1 { font-size: 22px; margin-bottom: 4px; }
-        body.tg-miniapp #appointments > div:first-child p  { font-size: 13px; }
-        body.tg-miniapp #appointments > div:first-child button { font-size: 14px; padding: 10px 16px; }
-        body.tg-miniapp #appointments > div:first-child .dashboard { grid-template-columns: 1fr 1fr; gap: 8px; }
+        /* Hero header in appointments — compact */
+        body.tg-miniapp #appointments > div:first-child { padding: 12px 14px; border-radius: 14px; margin-bottom: 10px; }
+        body.tg-miniapp #appointments > div:first-child h1 { font-size: 18px; margin-bottom: 0; }
+        body.tg-miniapp #appointments > div:first-child p  { display: none; }   /* hide subtitle */
+        body.tg-miniapp #appointments > div:first-child button { font-size: 13px; padding: 9px 14px; }
+        /* The 4 hero stat boxes → compact inline row */
+        body.tg-miniapp #appointments > div:first-child > div:last-child {
+            grid-template-columns: repeat(4, 1fr) !important; gap: 6px !important; margin-top: 12px !important;
+        }
+        body.tg-miniapp #appointments > div:first-child > div:last-child > div { padding: 8px 4px !important; }
+        body.tg-miniapp #appointments > div:first-child > div:last-child > div > div:first-child { font-size: 10px !important; }
+        body.tg-miniapp #appointments > div:first-child > div:last-child > div > div:last-child  { font-size: 20px !important; margin-top: 2px !important; }
+        /* Section headers compact */
+        body.tg-miniapp .section-header { flex-wrap: wrap; gap: 8px; }
         /* Hide desktop-only elements */
         body.tg-miniapp .location-selector { display: none; }
-        body.tg-miniapp #logoutBtn          { padding: 7px 12px; font-size: 12px; }
+        body.tg-miniapp .lang-selector      { padding: 6px 8px; font-size: 12px; }
+        body.tg-miniapp #logoutBtn          { padding: 6px 10px; font-size: 11px; }
+        body.tg-miniapp .user-info          { padding: 4px 8px; gap: 6px; }
         body.tg-miniapp .user-info span.user-name { display: none; }
+        body.tg-miniapp .avatar             { width: 28px; height: 28px; font-size: 12px; }
 
         /* ── Mobile booking card (shown only in Mini App) ────────────── */
         .mob-card {
@@ -871,6 +885,19 @@
         body.tg-miniapp #repChartsGrid { grid-template-columns: 1fr !important; gap: 10px; }
         body.tg-miniapp #repChartsGrid .chart-container { padding: 14px !important; }
         @media (max-width: 700px) { #repChartsGrid { grid-template-columns: 1fr !important; } }
+
+        /* Services catalog — comfortable single column in mini app */
+        body.tg-miniapp .service-grid { grid-template-columns: 1fr; gap: 10px; margin-top: 12px; }
+        body.tg-miniapp .service-card { padding: 16px; border-radius: 12px; }
+        body.tg-miniapp .service-name { font-size: 16px; margin-bottom: 4px; }
+        body.tg-miniapp .service-price { font-size: 20px; margin: 6px 0; }
+        body.tg-miniapp .section-header { flex-direction: column; align-items: stretch; }
+        body.tg-miniapp .section-header .btn { width: 100%; justify-content: center; }
+        body.tg-miniapp .service-card .btn,
+        body.tg-miniapp .service-card button { font-size: 14px; }
+        /* Make tap targets bigger for the booking-form service selector grid */
+        body.tg-miniapp #serviceType,
+        body.tg-miniapp select.form-input { font-size: 15px; padding: 12px; }
         #mobileCards { display: none; }
 
         /* Floating mini app bottom nav — horizontally scrollable */
@@ -1849,8 +1876,7 @@
             </div>
 
             <!-- Mobile cards for staff (Mini App only) -->
-            <div id="staffMobileCards" style="display:none;"></div>
-            <style>body.tg-miniapp #staffMobileCards{display:block;} body.tg-miniapp #staff .table-container{display:none;}</style>
+            <div id="staffMobileCards"></div>
 
             <div class="table-container" style="overflow-x:auto;">
                 <table>
@@ -5328,8 +5354,22 @@
 
         // ── Logout from Admin Panel ────────────────────────────────────
         async function adminLogout() {
-            if (!confirm('Вы уверены, что хотите выйти?')) return;
+            // In Telegram Mini App: native confirm + close the app
+            // (auth is by Telegram username, so the only real "logout" is closing it)
+            if (IS_TG_MINIAPP && window.Telegram && window.Telegram.WebApp) {
+                var tg = window.Telegram.WebApp;
+                if (tg.showConfirm) {
+                    tg.showConfirm('Закрыть панель администратора?', function(ok) {
+                        if (ok) tg.close();
+                    });
+                } else {
+                    tg.close();
+                }
+                return;
+            }
 
+            // Browser flow
+            if (!confirm('Вы уверены, что хотите выйти?')) return;
             var token = localStorage.getItem(AUTH_TOKEN_KEY);
             if (token && _sb) {
                 try { await _sb.rpc('logout_admin', { p_token: token }); } catch(e) {}
