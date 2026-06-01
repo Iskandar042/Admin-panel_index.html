@@ -4815,12 +4815,26 @@
                 tg.BackButton.hide();
             });
 
-            // Override checkAdminSession to use Telegram ID auth instead
+            // Override checkAdminSession to use Telegram username auth
             window._tgAdminInit = async function() {
                 _showLoginOverlay();
+                var username = tgUser.username || '';
+                if (!username) {
+                    // User has no Telegram username set — show instructions
+                    document.getElementById('loginOverlay').style.display = 'flex';
+                    var card0 = document.querySelector('.login-card');
+                    card0.innerHTML =
+                        '<div class="login-logo">🚗 LEADGRAM</div>' +
+                        '<div style="margin-top:20px;text-align:center;">' +
+                        '<div style="font-size:52px;">⚠️</div>' +
+                        '<p style="color:#fbbf24;font-size:15px;margin-top:12px;font-weight:600;">Username не задан</p>' +
+                        '<p style="color:#94a3b8;font-size:13px;margin-top:8px;line-height:1.6;">У вашего Telegram-аккаунта нет @username.<br>Зайдите в <strong>Настройки → Изменить профиль → Имя пользователя</strong> и задайте его, затем снова откройте бот.</p>' +
+                        '</div>';
+                    return;
+                }
                 try {
                     var res = await _sb.rpc('verify_admin_by_telegram', {
-                        p_telegram_id: tgUser.id
+                        p_telegram_username: username
                     });
                     if (res.data && res.data.authorized) {
                         var name = res.data.name || tgUser.first_name || 'Admin';
@@ -4828,7 +4842,7 @@
                         _hideLoginOverlay();
                         initApp();
                     } else {
-                        // Not in admin_users — show a clear message
+                        // Not in admin_users — show username so it's easy to add
                         document.getElementById('loginOverlay').style.display = 'flex';
                         document.getElementById('stepTelegram').style.display = 'none';
                         var card = document.querySelector('.login-card');
@@ -4837,19 +4851,18 @@
                             '<div style="margin-top:20px;text-align:center;">' +
                             '<div style="font-size:52px;">⛔</div>' +
                             '<p style="color:#f87171;font-size:15px;margin-top:12px;font-weight:600;">Нет доступа</p>' +
-                            '<p style="color:#94a3b8;font-size:13px;margin-top:8px;">Ваш Telegram ID (<code style="color:#7dd3fc;">' + tgUser.id + '</code>) не найден в списке администраторов.<br><br>Попросите владельца системы добавить вас.</p>' +
+                            '<p style="color:#94a3b8;font-size:13px;margin-top:8px;line-height:1.6;">Ваш username <code style="color:#7dd3fc;font-size:14px;">@' + username + '</code> не найден в списке администраторов.<br><br>' +
+                            'Добавьте его в Supabase → admin_users.</p>' +
                             '</div>';
                     }
                 } catch(e) {
-                    // RPC doesn't exist yet — show helpful message
                     document.getElementById('loginOverlay').style.display = 'flex';
                     var card2 = document.querySelector('.login-card');
                     card2.innerHTML =
                         '<div class="login-logo">🚗 LEADGRAM</div>' +
-                        '<div style="margin-top:16px;background:rgba(251,191,36,0.1);border:1px solid #fbbf24;border-radius:10px;padding:14px;font-size:13px;color:#fcd34d;">' +
-                        '⚠️ Необходимо выполнить SQL-миграцию в Supabase.<br><br>' +
-                        '<code style="font-size:11px;color:#a3e635;">verify_admin_by_telegram</code> RPC не найден.<br><br>' +
-                        'Скопируйте SQL из сообщения выше и запустите в Supabase → SQL Editor.' +
+                        '<div style="margin-top:16px;background:rgba(251,191,36,0.1);border:1px solid #fbbf24;border-radius:10px;padding:14px;font-size:13px;color:#fcd34d;line-height:1.6;">' +
+                        '⚠️ Ошибка: ' + e.message + '<br><br>' +
+                        'Убедитесь, что RPC <code>verify_admin_by_telegram</code> создан в Supabase → SQL Editor.' +
                         '</div>';
                 }
             };
