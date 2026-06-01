@@ -1324,6 +1324,7 @@
                             <th data-ru="Время" data-uz="Vaqt">Время</th>
                             <th data-ru="Длит." data-uz="Davomiylik">Длит.</th>
                             <th data-ru="Мойщик" data-uz="Yuvuvchi">Мойщик</th>
+                            <th data-ru="Фото" data-uz="Rasm">Фото</th>
                             <th data-ru="Действия" data-uz="Harakatlar">Действия</th>
                         </tr>
                     </thead>
@@ -3040,7 +3041,8 @@
                     payment_type:    b.payment_type  || 'cash',
                     payment_status:  b.payment_status  || 'pending',
                     workflow_status: b.workflow_status || 'queue',
-                    wash_time:       b.wash_time      || ''
+                    wash_time:       b.wash_time      || '',
+                    photo_url:       b.photo_url      || ''
                 };
             },
 
@@ -3067,6 +3069,7 @@
                     owner_type:   r.owner_type   || 'individual',
                     payment_type: r.payment_type || 'cash',
                     washed_by:    r.washed_by    || '',
+                    photo_url:    r.photo_url    || '',
                     phone:null,
                     date:tashDate(r.created_at), time:tashTime(r.created_at), duration:30, wash_time:(r.wash_time||''), notes:'', washer: r.washed_by || '', manual_override:false
                 }, getExtras(r.id));
@@ -3354,13 +3357,18 @@
                     '<td>' + (b.time || '') + (b.wash_time ? '<br><span style="font-size:11px;color:#2563eb;font-weight:600;">🕒 ' + b.wash_time + '</span>' : '') + '</td>' +
                     '<td>' + washDuration(b, L) + '</td>' +
                     '<td style="font-size:13px;">' + (b.washer || '—') + '</td>' +
+                    '<td>' + (b.photo_url
+                        ? '<a href="' + b.photo_url + '" target="_blank" title="' + (L ? 'Rasmni ko\'rish' : 'Открыть фото') + '">' +
+                          '<img src="' + b.photo_url + '" style="width:54px;height:40px;object-fit:cover;border-radius:6px;border:1.5px solid var(--border);cursor:pointer;" ' +
+                          'onerror="this.parentElement.innerHTML=\'📷\'"></a>'
+                        : '<span style="color:var(--light-gray);font-size:12px;">—</span>') + '</td>' +
                     '<td style="white-space:nowrap;">' +
                         '<button class="action-btn" title="' + (L ? 'Tahrirlash' : 'Редактировать') + '" onclick="openEditBooking(\'' + b.id + '\')">✏️</button>' +
                         '<button class="action-btn danger" title="' + (L ? "O'chirish" : 'Удалить') + '" onclick="deleteBooking(\'' + b.id + '\')">🗑️</button>' +
                     '</td>' +
                     '</tr>';
                 }).join('')
-                : '<tr><td colspan="14" style="text-align:center;padding:30px;color:var(--light-gray);">' + (L ? "Ma'lumot yo'q" : 'Нет данных') + '</td></tr>';
+                : '<tr><td colspan="15" style="text-align:center;padding:30px;color:var(--light-gray);">' + (L ? "Ma'lumot yo'q" : 'Нет данных') + '</td></tr>';
             updateAppointmentStats(bookings);
         }
 
