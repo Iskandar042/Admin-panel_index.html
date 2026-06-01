@@ -8,6 +8,8 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <!-- Supabase JS SDK v2 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <!-- Chart.js for reports & dashboard analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         * {
@@ -808,11 +810,14 @@
         #telegramWidgetContainer { display: flex; justify-content: center; min-height: 54px; }
 
         /* ── TELEGRAM MINI APP MODE ─────────────────────────────────── */
-        body.tg-miniapp               { background: #f1f5f9; }
-        body.tg-miniapp header        { padding: 10px 14px; position: sticky; top: 0; z-index: 50; }
+        body.tg-miniapp               { background: #f1f5f9; overflow-y: auto; -webkit-overflow-scrolling: touch;
+                                        color-scheme: light; forced-color-adjust: none; }
+        body.tg-miniapp .bg-animation { display: none; }   /* avoid overlay clipping */
+        body.tg-miniapp header        { padding: 10px 14px; position: sticky; top: 0; z-index: 50; margin: 0; }
+        body.tg-miniapp .header-content { flex-direction: row; gap: 8px; }
         body.tg-miniapp .logo         { font-size: 18px; letter-spacing: 1px; }
-        body.tg-miniapp nav           { display: none; }   /* replaced by bottom nav */
-        body.tg-miniapp .container    { padding: 10px 10px 90px; max-width: 100%; }
+        body.tg-miniapp .container > nav { display: none; }   /* top nav replaced by bottom nav */
+        body.tg-miniapp .container    { padding: 10px 10px 96px; max-width: 100%; }
         body.tg-miniapp .content-section { padding: 12px; border-radius: 12px; margin-top: 10px; }
         body.tg-miniapp .section-title { font-size: 16px; }
         body.tg-miniapp .section-header { margin-bottom: 12px; padding-bottom: 10px; }
@@ -862,9 +867,13 @@
         }
         .mob-card-photo { width:100%; max-height:160px; object-fit:cover;
                           border-radius:8px; margin-top:8px; cursor:pointer; }
+        /* Charts: single column on mobile/mini app */
+        body.tg-miniapp #repChartsGrid { grid-template-columns: 1fr !important; gap: 10px; }
+        body.tg-miniapp #repChartsGrid .chart-container { padding: 14px !important; }
+        @media (max-width: 700px) { #repChartsGrid { grid-template-columns: 1fr !important; } }
         #mobileCards { display: none; }
 
-        /* Floating mini app bottom nav */
+        /* Floating mini app bottom nav — horizontally scrollable */
         #tgBottomNav {
             display: none;
             position: fixed;
@@ -872,26 +881,32 @@
             background: var(--bg-card);
             border-top: 1px solid var(--border);
             z-index: 200;
-            padding: 6px 0 env(safe-area-inset-bottom, 6px);
+            padding: 6px 4px env(safe-area-inset-bottom, 6px);
             box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
         }
+        #tgBottomNav::-webkit-scrollbar { display: none; }
         body.tg-miniapp #tgBottomNav { display: flex; }
         .tg-nav-btn {
-            flex: 1;
+            flex: 0 0 auto;
+            min-width: 60px;
             background: none;
             border: none;
             cursor: pointer;
-            padding: 6px 2px;
+            padding: 6px 4px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 2px;
+            gap: 3px;
             color: var(--light-gray);
-            font-size: 9px;
+            font-size: 10px;
             font-weight: 600;
             transition: color 0.15s;
+            border-radius: 10px;
         }
-        .tg-nav-btn.active { color: var(--primary); }
+        .tg-nav-btn.active { color: var(--primary); background: rgba(0,136,255,0.08); }
         .tg-nav-btn .tg-nav-icon { font-size: 20px; }
     </style>
 </head>
@@ -1782,8 +1797,32 @@
                 <div class="stat-card" style="border-left:4px solid #6366f1;"><div class="stat-label" data-ru="💳 Картой" data-uz="💳 Karta">💳 Картой</div><div class="stat-value" id="rep-card" style="font-size:24px;">0</div></div>
             </div>
 
+            <!-- Charts grid -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px;" id="repChartsGrid">
+                <!-- Revenue line chart (over the period) -->
+                <div class="chart-container" style="text-align:left;display:block;min-height:auto;padding:20px;">
+                    <h3 style="margin-bottom:14px;font-size:16px;" data-ru="📈 Выручка по дням" data-uz="📈 Kunlik daromad">📈 Выручка по дням</h3>
+                    <div style="position:relative;height:240px;"><canvas id="chartRevenueLine"></canvas></div>
+                </div>
+                <!-- Cars per day bar chart -->
+                <div class="chart-container" style="text-align:left;display:block;min-height:auto;padding:20px;">
+                    <h3 style="margin-bottom:14px;font-size:16px;" data-ru="📊 Машин по дням" data-uz="📊 Kunlik mashinalar">📊 Машин по дням</h3>
+                    <div style="position:relative;height:240px;"><canvas id="chartCarsBar"></canvas></div>
+                </div>
+                <!-- Payment method pie -->
+                <div class="chart-container" style="text-align:left;display:block;min-height:auto;padding:20px;">
+                    <h3 style="margin-bottom:14px;font-size:16px;" data-ru="💰 Способы оплаты" data-uz="💰 To'lov usullari">💰 Способы оплаты</h3>
+                    <div style="position:relative;height:240px;"><canvas id="chartPayPie"></canvas></div>
+                </div>
+                <!-- Service distribution doughnut -->
+                <div class="chart-container" style="text-align:left;display:block;min-height:auto;padding:20px;">
+                    <h3 style="margin-bottom:14px;font-size:16px;" data-ru="🧼 Доли услуг" data-uz="🧼 Xizmat ulushi">🧼 Доли услуг</h3>
+                    <div style="position:relative;height:240px;"><canvas id="chartServiceDoughnut"></canvas></div>
+                </div>
+            </div>
+
             <!-- Per-service breakdown -->
-            <div class="chart-container" style="text-align:left;">
+            <div class="chart-container" style="text-align:left;display:block;min-height:auto;">
                 <h3 style="margin-bottom:14px;" data-ru="🧼 По услугам" data-uz="🧼 Xizmatlar bo'yicha">🧼 По услугам</h3>
                 <div id="rep-services"></div>
             </div>
@@ -2777,21 +2816,9 @@
             });
         });
 
-        // Search functionality
-        const bookingSearchInput = document.getElementById('bookingSearch');
-        if (bookingSearchInput) {
-            bookingSearchInput.addEventListener('input', (e) => {
-                const searchTerm = e.target.value.toLowerCase();
-                const table = document.querySelector('#appointments table tbody');
-                if (table) {
-                    const rows = table.querySelectorAll('tr');
-                    rows.forEach(row => {
-                        const text = row.textContent.toLowerCase();
-                        row.style.display = text.includes(searchTerm) ? '' : 'none';
-                    });
-                }
-            });
-        }
+        // (Booking search listener is registered in the loyalty/search IIFE below,
+        //  which delegates to renderBookings() — handles plate normalization and
+        //  updates both the desktop table and the mobile cards.)
 
         // Location selector change (for filtering - optional feature)
         const locationSelector = document.getElementById('locationSelector');
@@ -3417,18 +3444,34 @@
             renderBookings();
         }
 
+        // Strip a plate/text down to bare alphanumerics for fuzzy matching.
+        // "01 | A 123 AA" → "01A123AA"  |  "01 a 123 aa" → "01A123AA"
+        function normPlate(s) {
+            return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        }
+
         // ── Render: Appointments ──────────────────────────────────────
         function renderBookings() {
             var bookings = DB.load('crm_bookings', []);
             var tbody    = document.querySelector('#appointments tbody');
             if (!tbody) return;
-            var term = (document.getElementById('bookingSearch') ? document.getElementById('bookingSearch').value : '').toLowerCase();
+            var rawTerm = (document.getElementById('bookingSearch') ? document.getElementById('bookingSearch').value : '').trim();
+            var term    = rawTerm.toLowerCase();
+            var termPlate = normPlate(rawTerm);   // for plate-format matching
             var L = currentLang === 'uz';
             var today = todayTash();
             var nowMs = Date.now();
 
             var list = bookings
-                .filter(function(b){ return !term || JSON.stringify(b).toLowerCase().includes(term); })
+                .filter(function(b){
+                    if (!term) return true;
+                    // 1) Plate match — normalize both sides so spaces/pipes/case don't matter
+                    if (termPlate && normPlate(b.license_plate).includes(termPlate)) return true;
+                    // 2) General text match (brand, model, service, washer, etc.)
+                    var hay = [b.car_brand, b.car_model, svcLabel(b.service, b.service_label),
+                               b.washer, b.license_plate, b.id].join(' ').toLowerCase();
+                    return hay.includes(term);
+                })
                 .filter(function(b) {
                     if (_bookingFilter === 'today') {
                         return rowDate(b) === today;
@@ -4767,6 +4810,102 @@
                     '</div>';
                 }).join('') : '<div style="color:var(--light-gray);">' + (L?"Ma'lumot yo'q":'Нет данных') + '</div>';
             }
+
+            // ── Charts ────────────────────────────────────────────────
+            renderReportCharts(b, p, rng, svc, { cashN: cashN, cardN: cardN }, L);
+        }
+
+        // ── Chart.js instances (kept so we can destroy/recreate) ──────
+        var _charts = {};
+        function _makeChart(id, config) {
+            if (typeof Chart === 'undefined') return;
+            var canvas = document.getElementById(id);
+            if (!canvas) return;
+            if (_charts[id]) { _charts[id].destroy(); }
+            _charts[id] = new Chart(canvas.getContext('2d'), config);
+        }
+
+        function renderReportCharts(b, p, rng, svc, pay, L) {
+            if (typeof Chart === 'undefined') return;
+            // Only draw when the reports section is actually visible — a hidden
+            // canvas has 0 size and Chart.js would render blank.
+            var repSection = document.getElementById('reports');
+            if (!repSection || !repSection.classList.contains('active')) return;
+            var unit = L ? " so'm" : ' сум';
+
+            // Build a list of day buckets between from→to (cap at 31 to stay readable)
+            var days = [];
+            var dFrom = new Date(rng.from + 'T00:00:00');
+            var dTo   = new Date(rng.to   + 'T00:00:00');
+            for (var d = new Date(dFrom); d <= dTo && days.length < 31; d.setDate(d.getDate()+1)) {
+                days.push(d.toISOString().slice(0,10));
+            }
+            // If only one day, charts still render a single point/bar
+            if (!days.length) days = [rng.to];
+
+            var revByDay  = {}, carsByDay = {};
+            days.forEach(function(day){ revByDay[day] = 0; carsByDay[day] = 0; });
+            p.forEach(function(x){
+                if (x.payment_status === 'paid') {
+                    var day = rowDate(x);
+                    if (revByDay[day] !== undefined) revByDay[day] += (x.amount||0);
+                }
+            });
+            b.forEach(function(x){
+                var day = rowDate(x);
+                if (carsByDay[day] !== undefined) carsByDay[day] += 1;
+            });
+
+            var labels = days.map(function(d){ return d.slice(5); }); // MM-DD
+            var palette = ['#0088ff','#10b981','#f59e0b','#ef4444','#7c3aed','#06b6d4','#ec4899','#84cc16','#f97316','#6366f1'];
+
+            // 1) Revenue line chart
+            _makeChart('chartRevenueLine', {
+                type: 'line',
+                data: { labels: labels, datasets: [{
+                    label: L ? 'Daromad' : 'Выручка',
+                    data: days.map(function(d){ return revByDay[d]; }),
+                    borderColor: '#0088ff', backgroundColor: 'rgba(0,136,255,0.12)',
+                    fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2
+                }]},
+                options: { responsive:true, maintainAspectRatio:false,
+                    plugins:{ legend:{ display:false } },
+                    scales:{ y:{ beginAtZero:true, ticks:{ callback:function(v){ return (v/1000)+'k'; } } } } }
+            });
+
+            // 2) Cars per day bar chart
+            _makeChart('chartCarsBar', {
+                type: 'bar',
+                data: { labels: labels, datasets: [{
+                    label: L ? 'Mashinalar' : 'Машины',
+                    data: days.map(function(d){ return carsByDay[d]; }),
+                    backgroundColor: '#10b981', borderRadius: 6
+                }]},
+                options: { responsive:true, maintainAspectRatio:false,
+                    plugins:{ legend:{ display:false } },
+                    scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } }
+            });
+
+            // 3) Payment method pie (paid only)
+            _makeChart('chartPayPie', {
+                type: 'pie',
+                data: { labels: [L?'Naqd':'Наличные', L?'Karta':'Карта'],
+                    datasets: [{ data: [pay.cashN, pay.cardN],
+                        backgroundColor: ['#16a34a','#6366f1'] }]},
+                options: { responsive:true, maintainAspectRatio:false,
+                    plugins:{ legend:{ position:'bottom' } } }
+            });
+
+            // 4) Service distribution doughnut (by count)
+            var svcNames = Object.keys(svc).sort(function(a,c){ return svc[c].count - svc[a].count; }).slice(0,8);
+            _makeChart('chartServiceDoughnut', {
+                type: 'doughnut',
+                data: { labels: svcNames,
+                    datasets: [{ data: svcNames.map(function(n){ return svc[n].count; }),
+                        backgroundColor: palette }]},
+                options: { responsive:true, maintainAspectRatio:false,
+                    plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } } } }
+            });
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -4929,11 +5068,21 @@
             if (!tg || !tg.initDataUnsafe || !tg.initDataUnsafe.user) return;
 
             IS_TG_MINIAPP = true;
+            var tgUser = tg.initDataUnsafe.user;   // declare BEFORE any use
             tg.ready();
             tg.expand();
+            try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch(e) {}
 
             // Apply compact mobile class
             document.body.classList.add('tg-miniapp');
+
+            // Set the viewport height from Telegram so content isn't clipped
+            function applyTgViewport() {
+                var h = tg.viewportStableHeight || tg.viewportHeight || window.innerHeight;
+                document.documentElement.style.setProperty('--tg-vh', h + 'px');
+            }
+            applyTgViewport();
+            tg.onEvent && tg.onEvent('viewportChanged', applyTgViewport);
 
             // Replace login overlay with a simple loading screen —
             // no Login Widget needed, auth is via telegram_username
@@ -4948,11 +5097,11 @@
                     '</div>';
             }
 
-            // Use Telegram theme colours
-            var bg = tg.themeParams && tg.themeParams.bg_color;
-            if (bg) document.documentElement.style.setProperty('--bg-card', bg);
-
-            var tgUser = tg.initDataUnsafe.user;
+            // NOTE: we intentionally do NOT adopt Telegram's theme colours —
+            // the admin panel is built for a light palette, and a dark Telegram
+            // theme would make text invisible. Force light scheme inside the app.
+            try { tg.setHeaderColor && tg.setHeaderColor('#ffffff'); } catch(e) {}
+            try { tg.setBackgroundColor && tg.setBackgroundColor('#f1f5f9'); } catch(e) {}
 
             // Back-button support: close modals or go back to appointments
             tg.BackButton.onClick(function() {
@@ -5240,11 +5389,20 @@
         <button class="tg-nav-btn" id="tgNav-reports" onclick="switchTab('reports')">
             <span class="tg-nav-icon">📈</span><span data-ru="Отчёты" data-uz="Hisobot">Отчёты</span>
         </button>
+        <button class="tg-nav-btn" id="tgNav-payments" onclick="switchTab('payments')">
+            <span class="tg-nav-icon">💳</span><span data-ru="Платежи" data-uz="To'lov">Платежи</span>
+        </button>
         <button class="tg-nav-btn" id="tgNav-staff" onclick="switchTab('staff')">
             <span class="tg-nav-icon">👷</span><span data-ru="Кадры" data-uz="Xodimlar">Кадры</span>
         </button>
         <button class="tg-nav-btn" id="tgNav-services" onclick="switchTab('services')">
             <span class="tg-nav-icon">🧼</span><span data-ru="Услуги" data-uz="Xizmat">Услуги</span>
+        </button>
+        <button class="tg-nav-btn" id="tgNav-loyalty" onclick="switchTab('loyalty')">
+            <span class="tg-nav-icon">🎁</span><span data-ru="Бонусы" data-uz="Bonus">Бонусы</span>
+        </button>
+        <button class="tg-nav-btn" id="tgNav-locations" onclick="switchTab('locations')">
+            <span class="tg-nav-icon">📍</span><span data-ru="Филиалы" data-uz="Filial">Филиалы</span>
         </button>
     </nav>
 
