@@ -10,6 +10,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <!-- Chart.js for reports & dashboard analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Data-label plugin: shows values on top of bars/points -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         * {
@@ -831,6 +833,9 @@
         /* Staff mobile cards: hidden on desktop, shown in mini app */
         #staffMobileCards                 { display: none; }
         body.tg-miniapp #staffMobileCards { display: block; }
+        /* Generic mobile-only card containers */
+        .mob-only                  { display: none; }
+        body.tg-miniapp .mob-only  { display: block; }
         /* Search bar */
         body.tg-miniapp .search-bar   { margin-bottom: 10px; }
         body.tg-miniapp .search-input { padding: 10px 14px; font-size: 14px; border-radius: 10px; }
@@ -1324,8 +1329,10 @@
                 </div>
             </div>
 
-            <div class="chart-container">
-                <div id="todayIncomeChart"></div>
+            <div class="chart-container" style="display:block;min-height:auto;text-align:left;">
+                <h3 style="margin-bottom:14px;font-size:16px;" data-ru="💰 Выручка сегодня (по часам)" data-uz="💰 Bugungi daromad (soatlar)">💰 Выручка сегодня (по часам)</h3>
+                <div style="position:relative;height:240px;"><canvas id="chartTodayHourly"></canvas></div>
+                <div id="todayIncomeChart" style="display:none;"></div>
             </div>
         </div>
 
@@ -1541,6 +1548,9 @@
                 <button class="btn btn-primary" onclick="openModal('paymentModal')"><span data-ru="➕ Записать платёж" data-uz="➕ To'lovni yozish">➕ Записать платёж</span></button>
             </div>
 
+            <!-- Mobile cards (Mini App only) -->
+            <div id="paymentsMobileCards" class="mob-only"></div>
+
             <div class="table-container">
                 <table>
                     <thead>
@@ -1597,6 +1607,9 @@
                 <h2 class="section-title" data-ru="Управление филиалами" data-uz="Filiallarni boshqarish">Управление филиалами</h2>
                 <button class="btn btn-primary" onclick="openAddLocation()"><span data-ru="➕ Добавить филиал" data-uz="➕ Filial qo'shish">➕ Добавить филиал</span></button>
             </div>
+
+            <!-- Mobile cards (Mini App only) -->
+            <div id="locationsMobileCards" class="mob-only"></div>
 
             <div class="table-container">
                 <table>
@@ -3621,6 +3634,29 @@
                     '</tr>';
                 }).join('')
                 : '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--light-gray);">' + (L ? "Ma'lumot yo'q" : 'Нет данных') + '</td></tr>';
+
+            // Mobile cards (Mini App)
+            var pMob = document.getElementById('paymentsMobileCards');
+            if (pMob && IS_TG_MINIAPP) {
+                pMob.innerHTML = sorted.length ? sorted.map(function(p){
+                    var paid = p.payment_status === 'paid';
+                    return '<div class="mob-card">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                            '<span class="mob-card-plate" style="font-size:16px;">' + (p.license_plate||'—').replace(' | ',' ') + '</span>' +
+                            '<strong style="color:var(--primary);">' + (p.amount||0).toLocaleString() + ' сум</strong>' +
+                        '</div>' +
+                        '<div class="mob-card-row">' +
+                            '<span>🧼 ' + svcLabel(p.service_key, p.service_label) + '</span>' +
+                            '<span>' + (p.payment_type==='card'?'💳 Карта':'💵 Наличные') + '</span>' +
+                        '</div>' +
+                        '<div class="mob-card-row">' +
+                            '<span>📅 ' + fmtDate(p.date) + '</span>' +
+                            '<span style="background:' + (paid?'#d1fae5':'#fee2e2') + ';color:' + (paid?'#065f46':'#991b1b') + ';padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;">' +
+                                (paid ? '✅ Оплачено' : '❌ Не оплачено') + '</span>' +
+                        '</div>' +
+                    '</div>';
+                }).join('') : '<div style="text-align:center;padding:30px;color:var(--light-gray);">' + (L?"Ma'lumot yo'q":'Нет платежей') + '</div>';
+            }
         }
 
         // ── Render: Loyalty ───────────────────────────────────────────
@@ -3732,8 +3768,13 @@
 
         // ── Today income chart (hourly bars, pure SVG — no external lib) ──
         function drawTodayIncomeChart(payments, today, L) {
-            var box = document.getElementById('todayIncomeChart');
-            if (!box) return;
+            // Only render when the dashboard tab is visible (canvas needs a size)
+            var dash = document.getElementById('dashboard');
+            if (!dash || !dash.classList.contains('active')) return;
+            if (typeof Chart === 'undefined') return;
+            var canvas = document.getElementById('chartTodayHourly');
+            if (!canvas) return;
+
             var hours = new Array(24).fill(0);
             payments.forEach(function(p){
                 if (rowDate(p) === today && p.payment_status === 'paid') {
@@ -3744,27 +3785,35 @@
                     }
                 }
             });
-            var max = Math.max.apply(null, hours.concat([1]));
-            var total = hours.reduce(function(a,b){return a+b;},0);
-            if (total === 0) {
-                box.innerHTML = '<div style="text-align:center;color:var(--light-gray);padding:40px;">' +
-                    (L ? "Bugun to'lovlar yo'q" : 'Сегодня платежей нет') + '</div>';
-                return;
-            }
-            var bars = hours.map(function(v, h){
-                var pct = Math.round((v / max) * 100);
-                var tip = h + ':00 — ' + v.toLocaleString() + (L ? " so'm" : ' сум');
-                return '<div title="' + tip + '" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;">' +
-                    '<div style="width:70%;height:' + Math.max(2,pct) + '%;background:var(--gradient-1);border-radius:4px 4px 0 0;min-height:2px;"></div>' +
-                    '<span style="font-size:9px;color:var(--light-gray);">' + h + '</span>' +
-                '</div>';
-            }).join('');
-            box.innerHTML =
-                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
-                    '<strong>' + (L ? "Bugungi daromad (soatlar bo'yicha)" : 'Выручка сегодня (по часам)') + '</strong>' +
-                    '<span style="color:var(--success);font-weight:700;">' + total.toLocaleString() + (L ? " so'm" : ' сум') + '</span>' +
-                '</div>' +
-                '<div style="display:flex;align-items:flex-end;gap:2px;height:180px;">' + bars + '</div>';
+            // Show only working-hours window (8:00–22:00) to keep it readable
+            var startH = 8, endH = 22;
+            var labels = [], data = [];
+            for (var h = startH; h <= endH; h++) { labels.push(h + ':00'); data.push(hours[h]); }
+            var hasDL = (typeof ChartDataLabels !== 'undefined');
+
+            _makeChart('chartTodayHourly', {
+                type: 'bar',
+                plugins: hasDL ? [ChartDataLabels] : [],
+                data: { labels: labels, datasets: [{
+                    label: L ? 'Daromad' : 'Выручка',
+                    data: data,
+                    backgroundColor: '#0088ff', borderRadius: 5
+                }]},
+                options: { responsive:true, maintainAspectRatio:false,
+                    layout:{ padding:{ top: 20 } },
+                    plugins:{
+                        legend:{ display:false },
+                        tooltip:{ callbacks:{ label:function(c){ return fmtMoneyShort(c.parsed.y) + (L?" so'm":' сум'); } } },
+                        datalabels: hasDL ? {
+                            align:'end', anchor:'end', color:'#0066cc', font:{ size:9, weight:'bold' },
+                            formatter:function(v){ return v > 0 ? fmtMoneyShort(v) : ''; }
+                        } : undefined
+                    },
+                    scales:{
+                        x:{ ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit:8, font:{ size:10 } } },
+                        y:{ beginAtZero:true, ticks:{ maxTicksLimit:5, callback:function(v){ return fmtMoneyShort(v); } } }
+                    } }
+            });
         }
 
         // ── Save Booking (main connected action) ──────────────────────
@@ -4654,6 +4703,28 @@
             if (!tbody) return;
             var locs = getLocList();
             var L = currentLang === 'uz';
+
+            // Mobile cards (Mini App)
+            var locMob = document.getElementById('locationsMobileCards');
+            if (locMob && IS_TG_MINIAPP) {
+                locMob.innerHTML = locs.length ? locs.map(function(loc){
+                    var open = loc.status === 'open';
+                    return '<div class="mob-card">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                            '<strong style="font-size:15px;">' + loc.name + '</strong>' +
+                            '<span style="background:' + (open?'#d1fae5':'#fee2e2') + ';color:' + (open?'#065f46':'#991b1b') + ';padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;">' +
+                                (open ? (L?'Ochiq':'Открыто') : (L?'Yopiq':'Закрыто')) + '</span>' +
+                        '</div>' +
+                        '<div class="mob-card-row"><span>📍 ' + loc.address + '</span></div>' +
+                        '<div class="mob-card-row"><span>📞 ' + loc.phone + '</span></div>' +
+                        '<div class="mob-card-actions">' +
+                            '<button class="btn" style="background:var(--bg-main);color:var(--light);border:1px solid var(--border);" onclick="openEditLocation(\'' + loc.id + '\')">✏️ ' + (L?'Tahrirlash':'Изменить') + '</button>' +
+                            '<button class="btn" style="background:#ef4444;color:#fff;" onclick="deleteLocation(\'' + loc.id + '\')">🗑️</button>' +
+                        '</div>' +
+                    '</div>';
+                }).join('') : '<div style="text-align:center;padding:30px;color:var(--light-gray);">' + (L?"Ma'lumot yo'q":'Нет филиалов') + '</div>';
+            }
+
             if (!locs.length) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--light-gray);">' + (L ? "Ma'lumot yo'q" : 'Нет данных') + '</td></tr>';
                 return;
@@ -4841,6 +4912,17 @@
             renderReportCharts(b, p, rng, svc, { cashN: cashN, cardN: cardN }, L);
         }
 
+        // ── Money formatter for chart axes/labels (readable UZS) ──────
+        // 0 → "0" | 100000 → "100 000" | 1500000 → "1.5 млн" | 2000000 → "2 млн"
+        function fmtMoneyShort(v) {
+            v = Number(v) || 0;
+            if (v >= 1000000) {
+                var m = v / 1000000;
+                return (Number.isInteger(m) ? m : m.toFixed(1)) + ' млн';
+            }
+            return Math.round(v).toLocaleString('ru-RU');   // thousands-separated
+        }
+
         // ── Chart.js instances (kept so we can destroy/recreate) ──────
         var _charts = {};
         function _makeChart(id, config) {
@@ -4848,6 +4930,7 @@
             var canvas = document.getElementById(id);
             if (!canvas) return;
             if (_charts[id]) { _charts[id].destroy(); }
+            // Register datalabels plugin only for the charts we want it on
             _charts[id] = new Chart(canvas.getContext('2d'), config);
         }
 
@@ -4885,31 +4968,52 @@
             var labels = days.map(function(d){ return d.slice(5); }); // MM-DD
             var palette = ['#0088ff','#10b981','#f59e0b','#ef4444','#7c3aed','#06b6d4','#ec4899','#84cc16','#f97316','#6366f1'];
 
+            var hasDL = (typeof ChartDataLabels !== 'undefined');
+            var revData  = days.map(function(d){ return revByDay[d]; });
+            var carsData = days.map(function(d){ return carsByDay[d]; });
+
             // 1) Revenue line chart
             _makeChart('chartRevenueLine', {
                 type: 'line',
+                plugins: hasDL ? [ChartDataLabels] : [],
                 data: { labels: labels, datasets: [{
                     label: L ? 'Daromad' : 'Выручка',
-                    data: days.map(function(d){ return revByDay[d]; }),
+                    data: revData,
                     borderColor: '#0088ff', backgroundColor: 'rgba(0,136,255,0.12)',
                     fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2
                 }]},
                 options: { responsive:true, maintainAspectRatio:false,
-                    plugins:{ legend:{ display:false } },
-                    scales:{ y:{ beginAtZero:true, ticks:{ callback:function(v){ return (v/1000)+'k'; } } } } }
+                    layout:{ padding:{ top: 22 } },
+                    plugins:{
+                        legend:{ display:false },
+                        tooltip:{ callbacks:{ label:function(c){ return fmtMoneyShort(c.parsed.y) + unit; } } },
+                        datalabels: hasDL ? {
+                            align:'top', anchor:'end', color:'#0066cc', font:{ size:10, weight:'bold' },
+                            formatter:function(v){ return v > 0 ? fmtMoneyShort(v) : ''; }
+                        } : undefined
+                    },
+                    scales:{ y:{ beginAtZero:true, ticks:{ maxTicksLimit:5, callback:function(v){ return fmtMoneyShort(v); } } } } }
             });
 
-            // 2) Cars per day bar chart
+            // 2) Cars per day bar chart — shows the count on each bar
             _makeChart('chartCarsBar', {
                 type: 'bar',
+                plugins: hasDL ? [ChartDataLabels] : [],
                 data: { labels: labels, datasets: [{
                     label: L ? 'Mashinalar' : 'Машины',
-                    data: days.map(function(d){ return carsByDay[d]; }),
+                    data: carsData,
                     backgroundColor: '#10b981', borderRadius: 6
                 }]},
                 options: { responsive:true, maintainAspectRatio:false,
-                    plugins:{ legend:{ display:false } },
-                    scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } } }
+                    layout:{ padding:{ top: 22 } },
+                    plugins:{
+                        legend:{ display:false },
+                        datalabels: hasDL ? {
+                            align:'end', anchor:'end', color:'#065f46', font:{ size:12, weight:'bold' },
+                            formatter:function(v){ return v > 0 ? v : ''; }
+                        } : undefined
+                    },
+                    scales:{ y:{ beginAtZero:true, ticks:{ precision:0, stepSize:1 } } } }
             });
 
             // 3) Payment method pie (paid only)
@@ -4919,7 +5023,7 @@
                     datasets: [{ data: [pay.cashN, pay.cardN],
                         backgroundColor: ['#16a34a','#6366f1'] }]},
                 options: { responsive:true, maintainAspectRatio:false,
-                    plugins:{ legend:{ position:'bottom' } } }
+                    plugins:{ legend:{ position:'bottom' }, datalabels:{ display:false } } }
             });
 
             // 4) Service distribution doughnut (by count)
@@ -4930,7 +5034,7 @@
                     datasets: [{ data: svcNames.map(function(n){ return svc[n].count; }),
                         backgroundColor: palette }]},
                 options: { responsive:true, maintainAspectRatio:false,
-                    plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } } } }
+                    plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } }, datalabels:{ display:false } } }
             });
         }
 
