@@ -4339,12 +4339,23 @@
             if (!paidMap[month]) paidMap[month] = {};
             paidMap[month][uname] = !paidMap[month][uname];
             DB.save('crm_salary_paid', paidMap);
-            // Persist to Supabase too
-            if (_sb) _sb.rpc('set_salary_paid', {
-                p_token: localStorage.getItem(AUTH_TOKEN_KEY),
-                p_username: uname, p_month: month, p_paid: !!paidMap[month][uname]
-            }).catch(function(e){ console.warn('set_salary_paid:', e); });
+
+            // Update the UI immediately (must run before any async/Supabase call
+            // so a thrown error can't block the re-render).
             renderStaff();
+
+            // Persist to Supabase in the background — fully guarded so a failed
+            // or non-promise return can never break the UI update above.
+            try {
+                var res = _sb && _sb.rpc('set_salary_paid', {
+                    p_token: localStorage.getItem(AUTH_TOKEN_KEY),
+                    p_username: uname, p_month: month, p_paid: !!paidMap[month][uname]
+                });
+                if (res && typeof res.then === 'function') {
+                    res.then(function(r){ if (r && r.error) console.warn('set_salary_paid:', r.error); },
+                             function(e){ console.warn('set_salary_paid:', e); });
+                }
+            } catch(e) { console.warn('set_salary_paid threw:', e); }
         }
 
         function openAddStaff() {
@@ -4897,12 +4908,15 @@
             if (!repSection || !repSection.classList.contains('active')) return;
             var unit = L ? " so'm" : ' сум';
 
-            // Build a list of day buckets between from→to (cap at 31 to stay readable)
+            // Build a list of day buckets between from→to (cap at 31 to stay readable).
+            // Use noon + Asia/Tashkent formatting so bucket keys match rowDate()
+            // exactly (avoids the UTC off-by-one that left charts empty).
             var days = [];
-            var dFrom = new Date(rng.from + 'T00:00:00');
-            var dTo   = new Date(rng.to   + 'T00:00:00');
-            for (var d = new Date(dFrom); d <= dTo && days.length < 31; d.setDate(d.getDate()+1)) {
-                days.push(d.toISOString().slice(0,10));
+            var d = new Date(rng.from + 'T12:00:00');
+            var dEnd = new Date(rng.to + 'T12:00:00');
+            while (d <= dEnd && days.length < 31) {
+                days.push(d.toLocaleDateString('en-CA', { timeZone:'Asia/Tashkent' }));
+                d.setDate(d.getDate() + 1);
             }
             // If only one day, charts still render a single point/bar
             if (!days.length) days = [rng.to];
