@@ -435,6 +435,12 @@ body {
       <h3 id="bookingsTitle">🔔 Заявки на бронь</h3>
       <button class="refresh-btn" onclick="loadPendingForWorker()" title="Обновить">🔄</button>
     </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <button class="toggle-btn on" id="bkfNew"      onclick="setBkFilter('new')"      style="font-size:13px;padding:8px 12px;">🆕 <span id="bkfNewLbl">Новые</span></button>
+      <button class="toggle-btn"    id="bkfApproved" onclick="setBkFilter('approved')" style="font-size:13px;padding:8px 12px;">✅ <span id="bkfApprovedLbl">Подтв.</span></button>
+      <button class="toggle-btn"    id="bkfDeclined" onclick="setBkFilter('declined')" style="font-size:13px;padding:8px 12px;">❌ <span id="bkfDeclinedLbl">Отклон.</span></button>
+      <button class="toggle-btn"    id="bkfAll"      onclick="setBkFilter('all')"      style="font-size:13px;padding:8px 12px;">📋 <span id="bkfAllLbl">Все</span></button>
+    </div>
     <div id="pendingList"></div>
   </div>
 
@@ -1041,20 +1047,37 @@ async function loadPendingForWorker() {
 function updateBookingsBadge() {
   const badge = document.getElementById('bookingsBadge');
   if (badge) {
-    badge.textContent = _pendingW.length;
-    badge.style.display = _pendingW.length ? 'inline-block' : 'none';
+    const newCount = _pendingW.filter(b => (b.status||'pending')==='pending').length;
+    badge.textContent = newCount;
+    badge.style.display = newCount ? 'inline-block' : 'none';
   }
+}
+let _bkFilter = 'new';
+function setBkFilter(f) {
+  _bkFilter = f;
+  ['new','approved','declined','all'].forEach(k=>{
+    const el=document.getElementById('bkf'+k.charAt(0).toUpperCase()+k.slice(1));
+    if(el) el.classList.toggle('on', k===f);
+  });
+  renderPendingW();
 }
 function renderPendingW() {
   updateBookingsBadge();
   const box = document.getElementById('pendingList');
   if (!box) return;
-  if (!_pendingW.length) {
-    box.innerHTML = `<div class="empty"><div class="icon">🎉</div><p>${lang==='uz'?"Yangi arizalar yo'q":'Новых заявок нет'}</p></div>`;
+  const uz = lang==='uz';
+  const filtered = _pendingW.filter(b=>{
+    const s=b.status||'pending';
+    if(_bkFilter==='new') return s==='pending';
+    if(_bkFilter==='approved') return s==='approved';
+    if(_bkFilter==='declined') return s==='declined';
+    return true;
+  });
+  if (!filtered.length) {
+    box.innerHTML = `<div class="empty"><div class="icon">📭</div><p>${uz?"Ro'yxat bo'sh":'Список пуст'}</p></div>`;
     return;
   }
-  const uz = lang==='uz';
-  box.innerHTML = _pendingW.map(b => {
+  box.innerHTML = filtered.map(b => {
       const svc = SERVICES[b.service]?.[uz?'uz':'ru'] || b.service_name || b.service || '';
       const phone = (b.phone||'').replace(/[^\d+]/g,'');
       const st = b.status || 'pending';
@@ -1750,7 +1773,9 @@ async function saveEdit() {
 function onPlateInput() {
   const region     = (document.getElementById('plateRegion') ? document.getElementById('plateRegion').value : '') || '';
   const rest       = document.getElementById('inputPlate').value;
-  const raw        = region + rest;
+  // If the user typed the FULL plate (incl. region) in the field, use it as-is.
+  // Otherwise prepend the region from the dropdown.
+  let raw = normalizePlate(rest) ? rest : (region + rest);
   const normalized = normalizePlate(raw);
   const wrap       = document.getElementById('plateVisualWrap');
   const vizText    = document.getElementById('plateVisualText');

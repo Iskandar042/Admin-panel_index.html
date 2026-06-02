@@ -159,14 +159,14 @@ const T={
       pickAll:'Заполните все поля',ok:'✅ Заявка отправлена! Ожидайте подтверждения.',err:'Ошибка',
       open:'Часы работы',none:'У вас пока нет записей',plateBad:'Неверный формат номера',
       qTitle:'🚗 Загрузка на эту дату',qTotal:'Всего в очереди',qCars:'машин',qFree:'✅ Свободно — записывайтесь!',qAtTime:'на ваше время',qBusyAt:'Занятые часы:',
-      pastTime:'⛔ Нельзя записаться на прошедшее время',cancel:'🗑 Отменить',cancelOk:'Запись отменена',cancelLate:'Отменить можно только в течение 10 минут после записи'},
+      pastTime:'⛔ Выберите время минимум на 10 минут позже текущего',cancel:'🗑 Отменить',cancelOk:'Запись отменена',cancelLate:'Отменить можно только в течение 10 минут после записи'},
   uz:{hBook:'📅 Yuvishga yozilish',lBranch:'Filial',lDate:'Sana',lTime:'Vaqt',lService:'Xizmat',
       lPlate:'Davlat raqami',lPhone:'Telefon',submitLbl:'✅ Bron qilish',navBookLbl:'Yozilish',navMineLbl:'Yozuvlarim',
       hMine:'📋 Yozuvlarim',pending:'⏳ Ko\'rib chiqilmoqda',approved:'✅ Tasdiqlangan',declined:'❌ Rad etilgan',
       pickAll:'Barcha maydonlarni to\'ldiring',ok:'✅ Ariza yuborildi! Tasdiqlashni kuting.',err:'Xato',
       open:'Ish vaqti',none:'Hozircha yozuvlaringiz yo\'q',plateBad:'Noto\'g\'ri raqam formati',
       qTitle:'🚗 Shu sanadagi band',qTotal:'Navbatda jami',qCars:'mashina',qFree:'✅ Bo\'sh — yoziling!',qAtTime:'sizning vaqtingizda',qBusyAt:'Band soatlar:',
-      pastTime:'⛔ O\'tgan vaqtga yozib bo\'lmaydi',cancel:'🗑 Bekor qilish',cancelOk:'Bekor qilindi',cancelLate:'Faqat 10 daqiqa ichida bekor qilish mumkin'}
+      pastTime:'⛔ Hozirdan kamida 10 daqiqa keyingi vaqtni tanlang',cancel:'🗑 Bekor qilish',cancelOk:'Bekor qilindi',cancelLate:'Faqat 10 daqiqa ichida bekor qilish mumkin'}
 };
 
 let lang='ru', sb=null, tgUser=null, branches=[], services={}, selSvc='', selPlate='';
@@ -231,7 +231,8 @@ async function loadQueueLoad(){
   const t=document.getElementById('inpTime');
   const todayStr=new Date().toLocaleDateString('en-CA');
   if(date===todayStr){
-    const now=new Date(); const hh=String(now.getHours()).padStart(2,'0'); const mm=String(now.getMinutes()).padStart(2,'0');
+    const soon=new Date(Date.now()+10*60*1000);   // now + 10 min
+    const hh=String(soon.getHours()).padStart(2,'0'); const mm=String(soon.getMinutes()).padStart(2,'0');
     const cur=hh+':'+mm;
     const lo=(b&&b.work_open&&b.work_open>cur)?b.work_open:cur;
     t.min=lo; if(t.value && t.value<lo) t.value=lo;
@@ -299,7 +300,8 @@ function onRegion(){ onPlate(); }
 function onPlate(){
   const region=(document.getElementById('plateRegion').value||'01');
   const rest=document.getElementById('inpPlate').value;
-  const raw=region+rest;
+  // if the full plate (incl. region) was typed in the field, use it as-is
+  const raw = normPlate(rest) ? rest : (region+rest);
   const n=normPlate(raw);
   const pv=document.getElementById('platePrev');
   if(n){selPlate=n;pv.textContent=n.replace(' | ',' ');pv.style.display='block';}
@@ -320,9 +322,9 @@ async function submitBooking(){
   const phone=fullPhone();
   const L=T[lang];
   if(!branchId||!date||!time||!selSvc||!selPlate||!phone){toast(L.pickAll,true);return;}
-  // No booking in the past
+  // Must be at least 10 minutes from now
   const when=new Date(date+'T'+time+':00');
-  if(when.getTime() < Date.now()-60000){ toast(L.pastTime,true); return; }
+  if(when.getTime() < Date.now() + 10*60*1000){ toast(L.pastTime,true); return; }
   if(!normPlate(document.getElementById('inpPlate').value)){toast(L.plateBad,true);return;}
   const svc=services[selSvc];
   const btn=document.getElementById('submitBtn');btn.disabled=true;

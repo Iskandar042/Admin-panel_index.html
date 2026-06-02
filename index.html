@@ -3268,7 +3268,14 @@
                     payment_type: r.payment_type || 'cash',
                     washed_by:    r.washed_by    || '',
                     photo_url:    r.photo_url    || '',
-                    phone:null,
+                    // booking-flow fields so the admin can tell customer bookings apart
+                    status:        r.status      || null,
+                    source:        r.source      || 'worker',
+                    branch:        r.branch       || '',
+                    comment:       r.comment      || '',
+                    req_date:      r.req_date     || '',
+                    req_time:      r.req_time     || '',
+                    phone:         r.phone || null,
                     date:tashDate(r.created_at), time:tashTime(r.created_at), duration:30, wash_time:(r.wash_time||''), notes:'', washer: r.washed_by || '', manual_override:false
                 }, getExtras(r.id));
             },
@@ -3510,9 +3517,17 @@
             return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
         }
 
+        // A customer booking that's still pending/approved/declined lives ONLY
+        // in the 🔔 Брони tab — it must NOT appear in the main Записи or stats
+        // until the car actually arrives (status 'arrived') or it's a walk-in.
+        function isActiveRecord(b) {
+            return !(b.source === 'customer' &&
+                     ['pending','approved','declined'].indexOf(b.status || '') >= 0);
+        }
+
         // ── Render: Appointments ──────────────────────────────────────
         function renderBookings() {
-            var bookings = DB.load('crm_bookings', []);
+            var bookings = DB.load('crm_bookings', []).filter(isActiveRecord);
             var tbody    = document.querySelector('#appointments tbody');
             if (!tbody) return;
             var rawTerm = (document.getElementById('bookingSearch') ? document.getElementById('bookingSearch').value : '').trim();
@@ -3591,7 +3606,11 @@
                             '<span>🧼 ' + svcLabel(b.service, b.service_label) + '</span>' +
                             '<span>' + (b.payment_type==='card'?'💳 Карта':'💵 Наличные') + '</span>' +
                         '</div>' +
-                        (b.washer ? '<div class="mob-card-row"><span>👷 ' + b.washer + '</span></div>' : '') +
+                        '<div class="mob-card-row">' +
+                            '<span>🗓️ ' + fmtDate(b.date) + ' ' + (b.time||b.wash_time||'') + '</span>' +
+                            '<span>⏱ ' + washDuration(b, currentLang==='uz') + '</span>' +
+                        '</div>' +
+                        '<div class="mob-card-row"><span>👷 ' + (b.washer || '—') + '</span></div>' +
                         photoHtml +
                         '<div class="mob-card-actions">' +
                             '<button class="btn" style="background:var(--gradient-1);color:#fff;" onclick="openEditBooking(\'' + b.id + '\')">✏️ Изменить</button>' +
@@ -3762,7 +3781,7 @@
 
         // ── Stats updates ─────────────────────────────────────────────
         function updateAppointmentStats(bookings) {
-            bookings = bookings || DB.load('crm_bookings', []);
+            bookings = (bookings || DB.load('crm_bookings', [])).filter(isActiveRecord);
             var today  = new Date().toISOString().split('T')[0];
             var todayB = bookings.filter(function(b){ return b.date === today; });
             function set(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
@@ -3792,7 +3811,7 @@
         function updateDashboard() {
             var payments = DB.load('crm_payments', []);
             var loyalty  = DB.load('crm_loyalty', {});
-            var bookings = DB.load('crm_bookings', []);
+            var bookings = DB.load('crm_bookings', []).filter(isActiveRecord);
             var L        = currentLang === 'uz';
             var today    = todayTash();
 
