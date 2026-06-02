@@ -5487,6 +5487,11 @@
                                 localStorage.setItem(AUTH_TOKEN_KEY, sess.data.token);
                             }
                         } catch(se) { console.warn('session mint failed:', se); }
+                        // Auto-capture chat id (silent — used only to push booking alerts;
+                        // auth stays username-based). You never type this anywhere.
+                        try {
+                            if (tgUser.id) await _sb.rpc('set_admin_telegram_id', { p_username: username, p_id: tgUser.id });
+                        } catch(ie) {}
                         _hideLoginOverlay();
                         initApp();
                     } else {
