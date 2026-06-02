@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Leadgram — Запись на мойку</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f9fc; --card:#fff; --text:#1e293b; --hint:#64748b;
+  --btn:#2563eb; --btn-dark:#1d4ed8; --btn-soft:#eff4ff; --sep:#eef2f7; --radius:16px;
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{color-scheme:light}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-tap-highlight-color:transparent;forced-color-adjust:none}
+
+.topbar{background:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--sep);position:sticky;top:0;z-index:10}
+.logo{font-size:18px;font-weight:800;letter-spacing:-.4px;color:var(--btn)}
+.lang-btn{background:none;border:1px solid var(--sep);color:var(--hint);font-size:13px;padding:5px 10px;border-radius:10px;cursor:pointer}
+
+.page{padding:14px 14px 90px;display:none}
+.page.active{display:block}
+
+.card{background:var(--card);border:1px solid var(--sep);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.h{font-size:16px;font-weight:700;margin-bottom:14px}
+
+.label{font-size:13px;font-weight:600;color:var(--hint);margin-bottom:6px;display:block}
+.group{margin-bottom:14px}
+.input{width:100%;background:#fbfcfe;border:1px solid var(--sep);border-radius:10px;padding:12px 14px;font-size:16px;color:var(--text);outline:none;font-family:inherit;transition:border-color .15s,box-shadow .15s}
+.input:focus{border-color:var(--btn);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+select.input{appearance:none;-webkit-appearance:none}
+
+.svc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.svc{background:#fbfcfe;border:2px solid var(--sep);border-radius:12px;padding:12px;cursor:pointer;text-align:center;transition:border-color .15s,background .15s}
+.svc.on{border-color:var(--btn);background:var(--btn-soft)}
+.svc .n{font-size:13px;font-weight:600}
+.svc .p{font-size:12px;color:var(--hint);margin-top:2px}
+
+.row{display:flex;gap:8px}
+.row .group{flex:1}
+
+.btn{width:100%;background:var(--btn);color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;transition:background .15s,transform .1s}
+.btn:hover{background:var(--btn-dark)} .btn:active{transform:scale(.99)} .btn:disabled{opacity:.5}
+
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:9px 14px;border-radius:10px;border:2px solid var(--sep);background:#fbfcfe;font-size:14px;font-weight:600;cursor:pointer}
+.chip.on{border-color:var(--btn);background:var(--btn-soft);color:var(--btn)}
+
+.badge{display:inline-block;font-size:12px;font-weight:700;padding:4px 11px;border-radius:20px}
+.b-pending{background:#fef4e6;color:#b45309}
+.b-approved{background:#e7f7ef;color:#047857}
+.b-declined{background:#fdecec;color:#b91c1c}
+
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-top:1px solid var(--sep);display:flex;gap:6px;padding:6px 8px env(safe-area-inset-bottom,6px);z-index:20}
+.nav-btn{flex:1;background:none;border:none;cursor:pointer;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--hint);font-size:11px;font-weight:600;border-radius:12px}
+.nav-btn.active{color:var(--btn);background:var(--btn-soft)}
+.nav-btn .ic{font-size:22px}
+
+.empty{text-align:center;padding:50px 20px;color:var(--hint)}
+.empty .ic{font-size:48px;margin-bottom:10px}
+
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:#1e293b;color:#fff;padding:11px 20px;border-radius:20px;font-size:14px;font-weight:500;z-index:99;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;max-width:90vw}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.plate-prev{font-family:monospace;font-weight:800;font-size:20px;letter-spacing:1px;background:#fbfcfe;border-radius:10px;padding:10px 14px;text-align:center;margin-top:8px;display:none}
+.muted{font-size:12px;color:var(--hint);margin-top:6px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">🚗 LEADGRAM</div>
+  <button class="lang-btn" id="langBtn" onclick="toggleLang()">RU</button>
+</div>
+
+<!-- ── Book tab ─────────────────────────────────────────── -->
+<div class="page active" id="pageBook">
+  <div class="card">
+    <div class="h" id="hBook">📅 Записаться на мойку</div>
+
+    <div class="group">
+      <label class="label" id="lBranch">Филиал</label>
+      <select class="input" id="selBranch" onchange="onBranchChange()"></select>
+      <div class="muted" id="branchHours"></div>
+    </div>
+
+    <div class="row">
+      <div class="group">
+        <label class="label" id="lDate">Дата</label>
+        <input class="input" id="inpDate" type="date" onchange="loadQueueLoad()">
+      </div>
+      <div class="group">
+        <label class="label" id="lTime">Время</label>
+        <input class="input" id="inpTime" type="time" onchange="renderQueueLoad()">
+      </div>
+    </div>
+
+    <!-- Queue load preview -->
+    <div id="queueLoad" style="display:none;background:#eff4ff;border:1px solid #dbe4ff;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13px;"></div>
+
+    <div class="group">
+      <label class="label" id="lService">Услуга</label>
+      <div class="svc-grid" id="svcGrid"></div>
+    </div>
+
+    <div class="group">
+      <label class="label" id="lPlate">Гос. номер</label>
+      <div style="display:flex;gap:8px;">
+        <select class="input" id="plateRegion" style="max-width:90px;" onchange="onRegion()">
+          <option value="">01</option>
+          <option>01</option><option>10</option><option>20</option><option>25</option>
+          <option>30</option><option>40</option><option>50</option><option>60</option>
+          <option>70</option><option>75</option><option>80</option><option>85</option>
+          <option>90</option><option>95</option>
+        </select>
+        <input class="input" id="inpPlate" type="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="A123AA" maxlength="10" oninput="onPlate()" style="flex:1;">
+      </div>
+      <div class="plate-prev" id="platePrev"></div>
+    </div>
+
+    <div class="group">
+      <label class="label" id="lPhone">Телефон</label>
+      <div style="display:flex;align-items:center;background:#fbfcfe;border:1px solid var(--sep);border-radius:10px;padding:0 12px;">
+        <span style="font-size:16px;font-weight:600;color:var(--text);">+998</span>
+        <input id="inpPhone" type="tel" inputmode="numeric" maxlength="12"
+               style="border:none;background:transparent;outline:none;font-size:16px;padding:12px 8px;flex:1;color:var(--text);"
+               placeholder="90 123-45-67" oninput="onPhoneInput()">
+      </div>
+    </div>
+
+    <button class="btn" id="submitBtn" onclick="submitBooking()"><span id="submitLbl">✅ Забронировать</span></button>
+  </div>
+</div>
+
+<!-- ── My bookings tab ──────────────────────────────────── -->
+<div class="page" id="pageMine">
+  <div class="h" style="padding:4px 2px 10px;" id="hMine">📋 Мои записи</div>
+  <div id="mineList"><div class="empty"><div class="ic">⏳</div><p>Загрузка…</p></div></div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="navBook" onclick="switchTab('book')"><span class="ic">📅</span><span id="navBookLbl">Запись</span></button>
+  <button class="nav-btn" id="navMine" onclick="switchTab('mine')"><span class="ic">📋</span><span id="navMineLbl">Мои записи</span></button>
+</nav>
+
+<div id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://xiwkqotyhcejzbeymovi.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhpd2txb3R5aGNlanpiZXltb3ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNDY1NzEsImV4cCI6MjA5NDkyMjU3MX0.xrwb98Mccs_aKd3FeL-G9C8d2C7QXq1EBtYok3CMDSM';
+
+const T={
+  ru:{hBook:'📅 Записаться на мойку',lBranch:'Филиал',lDate:'Дата',lTime:'Время',lService:'Услуга',
+      lPlate:'Гос. номер',lPhone:'Телефон',submitLbl:'✅ Забронировать',navBookLbl:'Запись',navMineLbl:'Мои записи',
+      hMine:'📋 Мои записи',pending:'⏳ На рассмотрении',approved:'✅ Подтверждено',declined:'❌ Отклонено',
+      pickAll:'Заполните все поля',ok:'✅ Заявка отправлена! Ожидайте подтверждения.',err:'Ошибка',
+      open:'Часы работы',none:'У вас пока нет записей',plateBad:'Неверный формат номера',
+      qTitle:'🚗 Загрузка на эту дату',qTotal:'Всего в очереди',qCars:'машин',qFree:'✅ Свободно — записывайтесь!',qAtTime:'на ваше время',qBusyAt:'Занятые часы:',
+      pastTime:'⛔ Нельзя записаться на прошедшее время',cancel:'🗑 Отменить',cancelOk:'Запись отменена',cancelLate:'Отменить можно только в течение 10 минут после записи'},
+  uz:{hBook:'📅 Yuvishga yozilish',lBranch:'Filial',lDate:'Sana',lTime:'Vaqt',lService:'Xizmat',
+      lPlate:'Davlat raqami',lPhone:'Telefon',submitLbl:'✅ Bron qilish',navBookLbl:'Yozilish',navMineLbl:'Yozuvlarim',
+      hMine:'📋 Yozuvlarim',pending:'⏳ Ko\'rib chiqilmoqda',approved:'✅ Tasdiqlangan',declined:'❌ Rad etilgan',
+      pickAll:'Barcha maydonlarni to\'ldiring',ok:'✅ Ariza yuborildi! Tasdiqlashni kuting.',err:'Xato',
+      open:'Ish vaqti',none:'Hozircha yozuvlaringiz yo\'q',plateBad:'Noto\'g\'ri raqam formati',
+      qTitle:'🚗 Shu sanadagi band',qTotal:'Navbatda jami',qCars:'mashina',qFree:'✅ Bo\'sh — yoziling!',qAtTime:'sizning vaqtingizda',qBusyAt:'Band soatlar:',
+      pastTime:'⛔ O\'tgan vaqtga yozib bo\'lmaydi',cancel:'🗑 Bekor qilish',cancelOk:'Bekor qilindi',cancelLate:'Faqat 10 daqiqa ichida bekor qilish mumkin'}
+};
+
+let lang='ru', sb=null, tgUser=null, branches=[], services={}, selSvc='', selPlate='';
+
+const DEFAULT_SVC={express:{ru:'Экспресс мойка',uz:'Ekspress yuvish',price:50000},premium:{ru:'Премиум мойка',uz:'Premium yuvish',price:120000}};
+
+document.addEventListener('DOMContentLoaded',async()=>{
+  const tg=window.Telegram?.WebApp;
+  if(tg){tg.ready();tg.expand();
+    try{tg.setHeaderColor&&tg.setHeaderColor('#ffffff')}catch(e){}
+    try{tg.setBackgroundColor&&tg.setBackgroundColor('#f7f9fc')}catch(e){}
+    tgUser=tg.initDataUnsafe?.user||null;
+  }
+  sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  // default date = today
+  document.getElementById('inpDate').value=new Date().toISOString().slice(0,10);
+  document.getElementById('inpDate').min=new Date().toISOString().slice(0,10);
+  await loadBranches();
+  await loadServices();
+  applyLang();
+});
+
+function toggleLang(){lang=lang==='ru'?'uz':'ru';document.getElementById('langBtn').textContent=lang.toUpperCase();applyLang();buildSvc();renderBranches();}
+function applyLang(){
+  const L=T[lang];
+  ['hBook','lBranch','lDate','lTime','lService','lPlate','lPhone','submitLbl','navBookLbl','navMineLbl','hMine'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.textContent=L[id];
+  });
+}
+
+function switchTab(t){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  if(t==='book'){document.getElementById('pageBook').classList.add('active');document.getElementById('navBook').classList.add('active');}
+  else{document.getElementById('pageMine').classList.add('active');document.getElementById('navMine').classList.add('active');loadMine();}
+}
+
+async function loadBranches(){
+  try{const{data}=await sb.rpc('get_branches');branches=Array.isArray(data)?data:[];}catch(e){branches=[];}
+  renderBranches();
+}
+function renderBranches(){
+  const sel=document.getElementById('selBranch');
+  sel.innerHTML=branches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('')||'<option value="">—</option>';
+  onBranchChange();
+}
+function onBranchChange(){
+  const b=branches.find(x=>x.id===document.getElementById('selBranch').value);
+  const hint=document.getElementById('branchHours');
+  if(b){hint.textContent=`🕒 ${T[lang].open}: ${b.work_open}–${b.work_close}`;
+    const t=document.getElementById('inpTime'); t.min=b.work_open; t.max=b.work_close; if(!t.value)t.value=b.work_open;}
+  else hint.textContent='';
+  loadQueueLoad();
+}
+
+// ── Queue load preview (how many cars already booked) ──────────────
+let _load = [];
+async function loadQueueLoad(){
+  const b=branches.find(x=>x.id===document.getElementById('selBranch').value);
+  const date=document.getElementById('inpDate').value;
+  // If the chosen date is today, don't allow a time earlier than now
+  const t=document.getElementById('inpTime');
+  const todayStr=new Date().toLocaleDateString('en-CA');
+  if(date===todayStr){
+    const now=new Date(); const hh=String(now.getHours()).padStart(2,'0'); const mm=String(now.getMinutes()).padStart(2,'0');
+    const cur=hh+':'+mm;
+    const lo=(b&&b.work_open&&b.work_open>cur)?b.work_open:cur;
+    t.min=lo; if(t.value && t.value<lo) t.value=lo;
+  } else if(b){ t.min=b.work_open; }
+  if(!b||!date){ document.getElementById('queueLoad').style.display='none'; return; }
+  try{
+    const{data}=await sb.rpc('get_branch_load',{p_branch:b.name,p_date:date});
+    _load=Array.isArray(data)?data:[];
+  }catch(e){ _load=[]; }
+  renderQueueLoad();
+}
+function renderQueueLoad(){
+  const box=document.getElementById('queueLoad');
+  if(!box) return;
+  const L=T[lang];
+  const total=_load.reduce((s,x)=>s+Number(x.cars||0),0);
+  if(!_load.length){
+    box.style.display='block';
+    box.innerHTML=`<strong>${L.qTitle}</strong><br>${L.qFree}`;
+    return;
+  }
+  const myTime=document.getElementById('inpTime').value;
+  const atMine=_load.filter(x=>x.slot===myTime).reduce((s,x)=>s+Number(x.cars||0),0);
+  const busy=_load.slice().sort((a,b)=>b.cars-a.cars).slice(0,5)
+    .map(x=>`<span style="display:inline-block;background:#fff;border:1px solid #dbe4ff;border-radius:8px;padding:2px 8px;margin:2px 3px 0 0;">🕒 ${x.slot} — <strong>${x.cars}</strong> ${L.qCars}</span>`).join('');
+  box.style.display='block';
+  box.innerHTML=
+    `<strong>${L.qTitle}</strong><br>`+
+    `${L.qTotal}: <strong>${total}</strong> ${L.qCars}`+
+    (myTime?` · ${atMine} ${L.qAtTime}`:'')+
+    `<div style="margin-top:6px;">${L.qBusyAt}<br>${busy}</div>`;
+}
+
+async function loadServices(){
+  try{const{data}=await sb.rpc('get_services');
+    if(Array.isArray(data)&&data.length){services={};data.forEach(s=>services[s.key]={ru:s.name_ru,uz:s.name_uz||s.name_ru,price:s.price});}
+    else services=Object.assign({},DEFAULT_SVC);
+  }catch(e){services=Object.assign({},DEFAULT_SVC);}
+  buildSvc();
+}
+function buildSvc(){
+  const g=document.getElementById('svcGrid');
+  g.innerHTML=Object.entries(services).map(([k,s])=>
+    `<div class="svc${selSvc===k?' on':''}" onclick="pickSvc('${k}')"><div class="n">${s[lang]}</div><div class="p">${(s.price||0).toLocaleString('ru-RU')} сум</div></div>`).join('');
+}
+function pickSvc(k){selSvc=k;buildSvc();}
+
+// Phone: fixed +998, format the 9 local digits as "90 123-45-67"
+function onPhoneInput(){
+  const el=document.getElementById('inpPhone');
+  let d=el.value.replace(/\D/g,'');
+  if(d.startsWith('998')) d=d.slice(3);   // user pasted full number
+  d=d.slice(0,9);
+  let out=d;
+  if(d.length>2)            out=d.slice(0,2)+' '+d.slice(2);
+  if(d.length>5)            out=d.slice(0,2)+' '+d.slice(2,5)+'-'+d.slice(5);
+  if(d.length>7)            out=d.slice(0,2)+' '+d.slice(2,5)+'-'+d.slice(5,7)+'-'+d.slice(7);
+  el.value=out;
+}
+function fullPhone(){
+  const d=document.getElementById('inpPhone').value.replace(/\D/g,'').slice(0,9);
+  return d.length===9 ? '+998 '+d.slice(0,2)+' '+d.slice(2,5)+'-'+d.slice(5,7)+'-'+d.slice(7) : '';
+}
+function onRegion(){ onPlate(); }
+function onPlate(){
+  const region=(document.getElementById('plateRegion').value||'01');
+  const rest=document.getElementById('inpPlate').value;
+  const raw=region+rest;
+  const n=normPlate(raw);
+  const pv=document.getElementById('platePrev');
+  if(n){selPlate=n;pv.textContent=n.replace(' | ',' ');pv.style.display='block';}
+  else{selPlate=raw.toUpperCase();pv.style.display='none';}
+}
+function normPlate(raw){
+  let s=raw.toUpperCase().replace(/[|\-]/g,' ').replace(/\s+/g,' ').trim();
+  let m=s.replace(/\s/g,'').match(/^(\d{2})([A-Z])(\d{3})([A-Z]{2})$/); if(m)return `${m[1]} | ${m[2]} ${m[3]} ${m[4]}`;
+  m=s.replace(/\s/g,'').match(/^(\d{2})(\d{3})([A-Z]{3})$/); if(m)return `${m[1]} | ${m[2]} ${m[3]}`;
+  return s.length>=6?s:'';
+}
+
+async function submitBooking(){
+  const branchId=document.getElementById('selBranch').value;
+  const branch=branches.find(b=>b.id===branchId);
+  const date=document.getElementById('inpDate').value;
+  const time=document.getElementById('inpTime').value;
+  const phone=fullPhone();
+  const L=T[lang];
+  if(!branchId||!date||!time||!selSvc||!selPlate||!phone){toast(L.pickAll,true);return;}
+  // No booking in the past
+  const when=new Date(date+'T'+time+':00');
+  if(when.getTime() < Date.now()-60000){ toast(L.pastTime,true); return; }
+  if(!normPlate(document.getElementById('inpPlate').value)){toast(L.plateBad,true);return;}
+  const svc=services[selSvc];
+  const btn=document.getElementById('submitBtn');btn.disabled=true;
+  try{
+    const{data,error}=await sb.rpc('create_customer_booking',{
+      p_tg_id:tgUser?.id||0, p_name:[tgUser?.first_name,tgUser?.last_name].filter(Boolean).join(' ')||'Customer',
+      p_phone:phone, p_plate:selPlate, p_branch:branch?branch.name:branchId,
+      p_service:selSvc, p_service_name:svc?svc[lang]:selSvc, p_amount:svc?svc.price:0,
+      p_req_date:date, p_req_time:time
+    });
+    if(error)throw error; if(data&&data.error)throw new Error(data.error);
+    toast(L.ok);
+    document.getElementById('inpPlate').value='';selPlate='';document.getElementById('platePrev').style.display='none';
+    selSvc='';buildSvc();
+    setTimeout(()=>switchTab('mine'),900);
+  }catch(e){toast(L.err+': '+e.message,true);}
+  finally{btn.disabled=false;}
+}
+
+async function loadMine(){
+  const box=document.getElementById('mineList');
+  try{
+    const{data}=await sb.rpc('get_customer_bookings',{p_tg_id:tgUser?.id||0});
+    const list=Array.isArray(data)?data:[];
+    if(!list.length){box.innerHTML=`<div class="empty"><div class="ic">🗒️</div><p>${T[lang].none}</p></div>`;return;}
+    box.innerHTML=list.map(renderMine).join('');
+  }catch(e){box.innerHTML=`<div class="empty"><p>❌ ${e.message}</p></div>`;}
+}
+function renderMine(b){
+  const L=T[lang];
+  const st=b.status||'pending';
+  const badge=st==='approved'?`<span class="badge b-approved">${L.approved}</span>`
+            :st==='declined'?`<span class="badge b-declined">${L.declined}</span>`
+            :`<span class="badge b-pending">${L.pending}</span>`;
+  const svcName=services[b.service]?services[b.service][lang]:(b.service_name||b.service||'');
+  // self-cancel allowed within 10 min of creation, and only while still pending/approved
+  const created=b.created_at?new Date(b.created_at).getTime():0;
+  const canCancel = (st==='pending'||st==='approved') && created && (Date.now()-created < 10*60*1000);
+  return `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-family:monospace;font-weight:800;font-size:17px;">${(b.plate||'').replace(' | ',' ')}</span>${badge}
+    </div>
+    <div style="margin-top:8px;font-size:14px;color:var(--hint);display:flex;flex-direction:column;gap:4px;">
+      <span>📍 ${b.branch||'—'}</span>
+      <span>🧼 ${svcName} · ${(b.amount||0).toLocaleString('ru-RU')} сум</span>
+      <span>🗓️ ${b.req_date||''} ${b.req_time||''}</span>
+      ${st==='declined'&&b.decline_reason?`<span style="color:#b91c1c;">✖ ${b.decline_reason}</span>`:''}
+    </div>
+    ${canCancel?`<button class="btn" style="width:100%;margin-top:10px;background:#fff;border:1.5px solid #ef4444;color:#ef4444;" onclick="cancelMine('${b.id}')">${L.cancel}</button>`:''}
+  </div>`;
+}
+
+async function cancelMine(id){
+  const L=T[lang];
+  try{
+    const{data,error}=await sb.rpc('customer_cancel_booking',{p_id:id,p_tg_id:tgUser?.id||0});
+    if(error)throw error;
+    if(data&&data.error==='too_late'){ toast(L.cancelLate,true); return; }
+    if(data&&data.error)throw new Error(data.error);
+    toast(L.cancelOk); loadMine();
+  }catch(e){ toast(L.err+': '+e.message,true); }
+}
+
+function toast(m,err){const t=document.getElementById('toast');t.textContent=m;t.style.background=err?'#ef4444':'#1e293b';t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2600);}
+</script>
+</body>
+</html>

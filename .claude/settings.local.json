@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Select-String -Path 'C:\\\\Users\\\\i.ozodov_2024\\\\OneDrive - АО Инвестиционная компания UzAssets\\\\CRM\\\\index.html.html' -Pattern '// Make functions globally available|window\\\\.supabase|setInterval\\\\\\(loadBookings|Reload bookings every 30|// Load bookings when' | Select-Object -First 10 | Format-Table LineNumber, Line -AutoSize\")",
+      "PowerShell(head -100)",
+      "Bash(grep -n \"p_telegram_username\" \"/mnt/c/Users/Lenovo/OneDrive - АО Инвестиционная компания UzAssets/CRM/worker_app.html\" | head -5)",
+      "PowerShell($d=\"C:\\\\Users\\\\Lenovo\\\\OneDrive - АО Инвестиционная компания UzAssets\\\\CRM\"; \"git: \" + \\(Test-Path \\(Join-Path $d \".git\"\\)\\))",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)"
+    ]
+  }
+}

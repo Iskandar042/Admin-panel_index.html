@@ -1,0 +1,2159 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Leadgram — Worker App</title>
+
+<!-- Telegram Mini App SDK -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<!-- Inter font (Modern SaaS) -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ─── Modern SaaS palette (fixed light theme — never dark) ────────── */
+:root {
+  --bg:      #ffffff;
+  --bg2:     #f7f9fc;          /* very light grey-blue page bg */
+  --text:    #1e293b;          /* slate */
+  --hint:    #64748b;          /* secondary text */
+  --link:    #2563eb;
+  --btn:     #2563eb;          /* single blue accent */
+  --btn-dark:#1d4ed8;
+  --btn-soft:#eff4ff;
+  --btn-txt: #ffffff;
+  --sep:     #eef2f7;          /* hairline border */
+  --card:    #ffffff;
+  --radius:  16px;
+  color-scheme: light;         /* prevent Telegram/Android dark inversion */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { color-scheme: light; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg2);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  forced-color-adjust: none;
+}
+
+/* ─── Auth screen ─────────────────────────────────────────────────── */
+#authScreen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+  text-align: center;
+  gap: 12px;
+}
+#authScreen .icon { font-size: 64px; }
+#authScreen h2 { font-size: 20px; font-weight: 700; }
+#authScreen p  { font-size: 14px; color: var(--hint); max-width: 280px; }
+
+/* ─── App shell ───────────────────────────────────────────────────── */
+#app { display: none; flex-direction: column; min-height: 100vh; }
+
+/* ─── Top bar ─────────────────────────────────────────────────────── */
+.topbar {
+  background: var(--card);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--sep);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.topbar-logo { font-size: 18px; font-weight: 800; letter-spacing: -0.4px; color: var(--btn); }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.worker-badge {
+  background: var(--btn-soft);
+  color: var(--btn);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 20px;
+}
+.lang-btn {
+  background: none;
+  border: 1px solid var(--sep);
+  color: var(--hint);
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* ─── Page content ────────────────────────────────────────────────── */
+.page {
+  flex: 1;
+  padding: 12px 12px 120px;
+  display: none;
+}
+.page.active { display: block; }
+
+/* ─── Bottom navigation ───────────────────────────────────────────── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--sep);
+  display: flex;
+  z-index: 20;
+  padding: 8px 8px calc(env(safe-area-inset-bottom, 10px) + 16px);
+  gap: 6px;
+}
+.nav-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  color: var(--hint);
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 12px;
+  transition: color 0.15s, background 0.15s;
+}
+.nav-btn.active { color: var(--btn); background: var(--btn-soft); }
+.nav-btn .icon  { font-size: 22px; }
+
+/* ─── Cards ───────────────────────────────────────────────────────── */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 15px;
+  margin-bottom: 10px;
+  border: 1px solid var(--sep);
+  box-shadow: 0 1px 2px rgba(16,24,40,0.05);
+}
+
+/* ─── Plate in queue list ─────────────────────────────────────────── */
+.plate {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  font-family: monospace;
+}
+
+/* ─── Visual UZ license plate ─────────────────────────────────────── */
+.plate-uz-wrap {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 12px;
+  gap: 8px;
+}
+.plate-uz {
+  display: inline-flex;
+  align-items: stretch;
+  border: 3px solid #1a1a1a;
+  border-radius: 8px;
+  overflow: hidden;
+  /* Force white even in Telegram dark theme / Android forced-dark-mode */
+  background: #ffffff !important;
+  color-scheme: light;
+  forced-color-adjust: none;
+  height: 60px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+.plate-uz-left {
+  /* Uzbekistan flag: blue / white / green horizontal stripes */
+  background: linear-gradient(
+    to bottom,
+    #1C7EC2 0%, #1C7EC2 33%,
+    #fff    33%, #fff    66%,
+    #1DB954 66%, #1DB954 100%
+  );
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+  gap: 1px;
+  min-width: 38px;
+  /* thin white separator from number area */
+  border-right: 2px solid #1a1a1a;
+}
+.plate-uz-left .plate-flag  { font-size: 18px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.4)); }
+.plate-uz-left .plate-code  {
+  font-size: 9px; font-weight: 900; letter-spacing: 0.5px;
+  background: #1C7EC2; color: #fff;
+  padding: 0 3px; border-radius: 2px;
+}
+.plate-uz-number {
+  display: flex;
+  align-items: center;
+  font-size: 26px;
+  font-weight: 900;
+  font-family: 'Arial Black', Arial, monospace;
+  letter-spacing: 2.5px;
+  padding: 0 14px;
+  /* Force black text regardless of theme */
+  color: #000000 !important;
+  background: #ffffff !important;
+  color-scheme: light;
+  white-space: nowrap;
+}
+
+/* ─── Owner type badge ────────────────────────────────────────────── */
+.owner-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+.owner-individual { background: #dbeafe; color: #1d4ed8; }
+.owner-legal      { background: #fef3c7; color: #92400e; }
+
+/* ─── Status badges ───────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+}
+.badge-queue   { background: #fff3cd; color: #7c4a00; }
+.badge-washing { background: #ffe0cc; color: #c04000; }   /* orange-red — active wash */
+.badge-done    { background: #d1fae5; color: #065f46; }
+.badge-unpaid  { background: #fee2e2; color: #991b1b; }   /* red — unpaid */
+.badge-pending { background: #fef9c3; color: #713f12; }
+.badge-paid    { background: #d1fae5; color: #065f46; }
+
+/* ─── Car card metadata ───────────────────────────────────────────── */
+.car-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--hint);
+}
+.car-meta strong { color: var(--text); }
+
+/* ─── Action buttons ──────────────────────────────────────────────── */
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.btn {
+  flex: 1;
+  min-width: 80px;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.btn:active { transform: scale(0.97); opacity: 0.85; }
+.btn-primary { background: var(--btn); color: var(--btn-txt); }
+.btn-success { background: #10b981; color: #fff; }
+.btn-pay     { background: #6366f1; color: #fff; }
+.btn-danger  { background: #ef4444; color: #fff; }
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--sep);
+  color: var(--text);
+}
+
+/* ─── Add car form ────────────────────────────────────────────────── */
+.form-group { margin-bottom: 14px; }
+.form-label { font-size: 13px; font-weight: 600; margin-bottom: 6px; display: block; color: var(--hint); }
+.form-hint  { font-size: 12px; color: var(--hint); margin-top: 6px; line-height: 1.4; }
+.form-input {
+  width: 100%;
+  background: var(--bg2);
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 16px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.form-input:focus { border-color: var(--btn); }
+
+/* ─── Service selector ─────────────────────────────────────────────── */
+.svc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.svc-card {
+  background: var(--bg2);
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: center;
+}
+.svc-card.selected { border-color: var(--btn); background: color-mix(in srgb, var(--btn) 8%, transparent); }
+.svc-card .svc-name { font-size: 13px; font-weight: 600; }
+.svc-card .svc-price { font-size: 12px; color: var(--hint); margin-top: 2px; }
+
+/* ─── Toggle row ─────────────────────────────────────────────────────*/
+.toggle-row {
+  display: flex;
+  gap: 8px;
+}
+.toggle-btn {
+  flex: 1;
+  padding: 11px 8px;
+  border-radius: 10px;
+  border: 2px solid var(--sep);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+  transition: all 0.15s;
+}
+.toggle-btn.on { border-color: var(--btn); background: color-mix(in srgb, var(--btn) 10%, transparent); color: var(--btn); }
+
+/* ─── Loyalty note ───────────────────────────────────────────────────*/
+.loyalty-note {
+  background: color-mix(in srgb, #f59e0b 10%, transparent);
+  border: 1px solid #fbbf24;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+/* ─── Empty state ────────────────────────────────────────────────────*/
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--hint);
+}
+.empty .icon { font-size: 52px; margin-bottom: 12px; }
+.empty p     { font-size: 15px; }
+
+/* ─── Toast ──────────────────────────────────────────────────────────*/
+#toast {
+  position: fixed;
+  bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: #1e293b;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 99;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 90vw;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ─── Section heading ────────────────────────────────────────────────*/
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.section-head h3 { font-size: 16px; font-weight: 700; }
+.refresh-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 18px; color: var(--hint);
+}
+</style>
+</head>
+<body>
+
+<!-- ── Auth / Not-authorized screen ─────────────────────────────────── -->
+<div id="authScreen">
+  <div class="icon">⛔</div>
+  <h2 id="authTitle">Проверка…</h2>
+  <p  id="authMsg">Подождите, идёт проверка доступа.</p>
+</div>
+
+<!-- ── Main app ──────────────────────────────────────────────────────── -->
+<div id="app">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="topbar-logo">🚗 LEADGRAM</div>
+    <div class="topbar-right">
+      <span class="worker-badge" id="workerName">…</span>
+      <button class="lang-btn" onclick="toggleLang()" id="langToggle">RU</button>
+    </div>
+  </div>
+
+  <!-- ── Queue tab ──────────────────────────────────────────────────── -->
+  <div class="page active" id="pageQueue">
+    <div class="section-head">
+      <h3 id="queueTitle">📋 Очередь</h3>
+      <button class="refresh-btn" onclick="loadQueue()" title="Обновить">🔄</button>
+    </div>
+    <!-- My cars / All cars toggle -->
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button class="toggle-btn on" id="filterAll" onclick="setQueueFilter('all')" style="font-size:13px;padding:8px 12px;">
+        🌐 <span id="filterAllLbl">Все авто</span>
+      </button>
+      <button class="toggle-btn" id="filterMine" onclick="setQueueFilter('mine')" style="font-size:13px;padding:8px 12px;">
+        👤 <span id="filterMineLbl">Мои авто</span>
+      </button>
+    </div>
+    <div id="queueList"><div class="empty"><div class="icon">⏳</div><p>Загрузка…</p></div></div>
+  </div>
+
+  <!-- ── Bookings (Брони) tab ───────────────────────────────────────── -->
+  <div class="page" id="pageBookings">
+    <div class="section-head">
+      <h3 id="bookingsTitle">🔔 Заявки на бронь</h3>
+      <button class="refresh-btn" onclick="loadPendingForWorker()" title="Обновить">🔄</button>
+    </div>
+    <div id="pendingList"></div>
+  </div>
+
+  <!-- ── Add car tab ────────────────────────────────────────────────── -->
+  <div class="page" id="pageAdd">
+    <div class="card">
+      <h3 id="addTitle" style="font-size:16px;font-weight:700;margin-bottom:14px;">➕ Принять авто</h3>
+
+      <!-- Plate number -->
+      <div class="form-group">
+        <label class="form-label" id="lPlate">Гос. номер</label>
+        <div style="display:flex;gap:8px;">
+          <select class="form-input" id="plateRegion" style="max-width:88px;" onchange="onPlateInput()">
+            <option>01</option><option>10</option><option>20</option><option>25</option>
+            <option>30</option><option>40</option><option>50</option><option>60</option>
+            <option>70</option><option>75</option><option>80</option><option>85</option>
+            <option>90</option><option>95</option>
+          </select>
+          <input class="form-input" id="inputPlate" type="text" autocapitalize="characters"
+                 autocomplete="off" spellcheck="false" style="flex:1;"
+                 placeholder="A123AA" oninput="onPlateInput()" maxlength="10">
+        </div>
+        <div class="form-hint" id="plateHint">✏️ Регион слева, затем буква-цифры — A123AA</div>
+
+        <!-- Visual UZ plate display -->
+        <div class="plate-uz-wrap" id="plateVisualWrap">
+          <div class="plate-uz">
+            <div class="plate-uz-left">
+              <span class="plate-flag">🇺🇿</span>
+              <span class="plate-code">UZ</span>
+            </div>
+            <div class="plate-uz-number" id="plateVisualText"></div>
+          </div>
+          <div id="ownerTypeBadge" class="owner-type-badge"></div>
+        </div>
+
+        <div class="loyalty-note" id="loyaltyNote" style="display:none"></div>
+      </div>
+
+      <!-- Car brand -->
+      <div class="form-group">
+        <label class="form-label" id="lBrand">Марка автомобиля</label>
+        <select class="form-input" id="selectBrand" onchange="onBrandChange()">
+          <option value="">— выберите марку —</option>
+        </select>
+        <input class="form-input" id="inputBrandOther" type="text"
+               placeholder="Введите марку" style="display:none;margin-top:8px;"
+               oninput="formState.brand = this.value.trim()">
+      </div>
+
+      <!-- Car model -->
+      <div class="form-group" id="modelGroup" style="display:none">
+        <label class="form-label" id="lModel">Модель</label>
+        <select class="form-input" id="selectModel" onchange="onModelChange()">
+          <option value="">— выберите модель —</option>
+        </select>
+        <input class="form-input" id="inputModelOther" type="text"
+               placeholder="Введите модель" style="display:none;margin-top:8px;"
+               oninput="formState.model = this.value.trim()">
+      </div>
+
+      <!-- Service -->
+      <div class="form-group">
+        <label class="form-label" id="lService">Услуга</label>
+        <div class="svc-grid" id="svcGrid"></div>
+
+        <!-- Custom service inputs (shown when "Другое" is selected) -->
+        <div id="customSvcWrap" style="display:none;margin-top:10px;">
+          <input class="form-input" id="inputCustomSvcName" type="text"
+                 placeholder="Название услуги" oninput="formState.customName = this.value.trim()"
+                 style="margin-bottom:8px;">
+          <input class="form-input" id="inputCustomSvcPrice" type="number" inputmode="numeric"
+                 placeholder="Цена (сум)" oninput="formState.customPrice = parseInt(this.value)||0">
+        </div>
+      </div>
+
+      <!-- Payment type -->
+      <div class="form-group">
+        <label class="form-label" id="lPayType">Способ оплаты</label>
+        <div class="toggle-row">
+          <button class="toggle-btn on" id="btnCash" onclick="setPayType('cash')">💵 <span id="lCash">Наличные</span></button>
+          <button class="toggle-btn"   id="btnCard" onclick="setPayType('card')">💳 <span id="lCard">Карта</span></button>
+        </div>
+      </div>
+
+      <!-- Payment status -->
+      <div class="form-group">
+        <label class="form-label" id="lPayStatus">Статус оплаты</label>
+        <div class="toggle-row">
+          <button class="toggle-btn" id="btnUnpaid" onclick="setPayStatus('not-paid')">⏳ <span id="lUnpaid">Оплатит позже</span></button>
+          <button class="toggle-btn on" id="btnPaid"   onclick="setPayStatus('paid')">✅ <span id="lPaid">Уже оплачено</span></button>
+        </div>
+      </div>
+
+      <!-- Scheduled wash time (worker chooses; date is automatic) -->
+      <div class="form-group">
+        <label class="form-label" id="lWashTime">Время мойки</label>
+        <input class="form-input" id="inputWashTime" type="time"
+               oninput="formState.washTime = this.value">
+        <div class="form-hint" id="washTimeHint">🕒 Во сколько начать мойку</div>
+      </div>
+
+      <button class="btn btn-primary" id="submitBtn" onclick="submitCar()" style="width:100%;margin-top:4px;">
+        <span id="submitLabel">✅ Добавить в очередь</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Bottom nav -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="navQueue" onclick="switchTab('queue')">
+      <span class="icon">📋</span>
+      <span id="navQueueLabel">Очередь</span>
+    </button>
+    <button class="nav-btn" id="navBookings" onclick="switchTab('bookings')">
+      <span class="icon" style="position:relative;">🔔<span id="bookingsBadge" style="display:none;position:absolute;top:-4px;right:-8px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:0 5px;">0</span></span>
+      <span id="navBookingsLabel">Брони</span>
+    </button>
+    <button class="nav-btn" id="navAdd" onclick="switchTab('add')">
+      <span class="icon">➕</span>
+      <span id="navAddLabel">Принять</span>
+    </button>
+  </nav>
+</div>
+
+<!-- Detail modal (full car record) -->
+<div id="detailModal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(15,23,42,0.5);align-items:flex-end;justify-content:center;">
+  <div style="background:var(--card);width:100%;max-width:560px;max-height:90vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:18px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 style="font-size:17px;font-weight:700;">📋 <span id="detailTitle">Детали</span></h3>
+      <button onclick="closeDetail()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--hint);">✕</button>
+    </div>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<!-- Generic ask modal (text input / confirm) — works inside Telegram Mini App -->
+<div id="askModal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(15,23,42,0.45);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--card);width:100%;max-width:380px;border-radius:16px;padding:20px;box-shadow:0 20px 50px rgba(15,23,42,.25);">
+    <h3 id="askTitle" style="font-size:16px;font-weight:700;margin-bottom:12px;">…</h3>
+    <input id="askInput" class="form-input" type="text" style="margin-bottom:14px;display:none;">
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-outline" id="askCancel" style="flex:1;">Отмена</button>
+      <button class="btn btn-primary" id="askOk" style="flex:1;">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit record modal -->
+<div id="editModal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.5);align-items:flex-end;">
+  <div style="background:var(--card);width:100%;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:18px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <h3 id="editTitle" style="font-size:17px;font-weight:700;">✏️ Изменить запись</h3>
+      <button onclick="closeEdit()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--hint);">✕</button>
+    </div>
+
+    <!-- Plate — editable -->
+    <div class="form-group">
+      <label class="form-label" id="editPlateLabel">Гос. номер</label>
+      <input class="form-input" id="editPlateInput" type="text"
+             autocapitalize="characters" autocomplete="off" spellcheck="false"
+             maxlength="14" oninput="onEditPlateInput()"
+             style="font-size:20px;font-weight:800;font-family:monospace;letter-spacing:1px;">
+      <div class="plate-uz-wrap" id="editPlateVisualWrap">
+        <div class="plate-uz">
+          <div class="plate-uz-left">
+            <span class="plate-flag">🇺🇿</span>
+            <span class="plate-code">UZ</span>
+          </div>
+          <div class="plate-uz-number" id="editPlateVisualText"></div>
+        </div>
+        <div id="editOwnerTypeBadge" class="owner-type-badge"></div>
+      </div>
+    </div>
+
+    <!-- Workflow status -->
+    <div class="form-group">
+      <label class="form-label" id="editWfLabel">Статус мойки</label>
+      <div class="toggle-row">
+        <button class="toggle-btn" id="editWfQueue"   onclick="setEditWf('queue')">⏳ <span id="editWfQueueLbl">В очереди</span></button>
+        <button class="toggle-btn" id="editWfWashing" onclick="setEditWf('washing')">🚿 <span id="editWfWashingLbl">Моется</span></button>
+        <button class="toggle-btn" id="editWfDone"    onclick="setEditWf('done')">✅ <span id="editWfDoneLbl">Готово</span></button>
+      </div>
+    </div>
+
+    <!-- Payment type -->
+    <div class="form-group">
+      <label class="form-label" id="editPayTypeLbl">Способ оплаты</label>
+      <div class="toggle-row">
+        <button class="toggle-btn" id="editPtCash" onclick="setEditPayType('cash')">💵 <span id="editPtCashLbl">Наличные</span></button>
+        <button class="toggle-btn" id="editPtCard" onclick="setEditPayType('card')">💳 <span id="editPtCardLbl">Карта</span></button>
+      </div>
+    </div>
+
+    <!-- Payment status -->
+    <div class="form-group">
+      <label class="form-label" id="editPayStatLbl">Статус оплаты</label>
+      <div class="toggle-row">
+        <button class="toggle-btn" id="editPsUnpaid"  onclick="setEditPayStat('not-paid')">⏳ <span id="editPsUnpaidLbl">Не оплачено</span></button>
+        <button class="toggle-btn" id="editPsPaid"    onclick="setEditPayStat('paid')">✅ <span id="editPsPaidLbl">Оплачено</span></button>
+      </div>
+    </div>
+
+    <!-- Wash time -->
+    <div class="form-group">
+      <label class="form-label" id="editTimeLabel">Время мойки</label>
+      <input class="form-input" id="editWashTime" type="time">
+    </div>
+
+    <!-- Service -->
+    <div class="form-group">
+      <label class="form-label" id="editSvcLabel">Услуга</label>
+      <div class="svc-grid" id="editSvcGrid"></div>
+      <div id="editCustomWrap" style="display:none;margin-top:10px;">
+        <input class="form-input" id="editCustomName" type="text" placeholder="Название услуги" style="margin-bottom:8px;">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" id="editAmountLabel">Сумма (сум)</label>
+      <input class="form-input" id="editAmount" type="number" inputmode="numeric">
+    </div>
+
+    <!-- Photo capture -->
+    <div class="form-group">
+      <label class="form-label" id="editPhotoLabel">Фото автомобиля</label>
+      <div id="editPhotoPreview" style="display:none;margin-bottom:8px;">
+        <img id="editPhotoImg" src="" style="width:100%;max-height:200px;object-fit:cover;border-radius:10px;border:2px solid var(--btn);">
+        <button onclick="removeEditPhoto()" style="margin-top:6px;width:100%;background:#ef4444;color:#fff;border:none;padding:8px;border-radius:8px;font-size:13px;cursor:pointer;" id="editPhotoRemoveBtn">🗑️ Удалить фото</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-outline" style="flex:1;" onclick="document.getElementById('editPhotoCam').click()">📷 <span id="editPhotoCamLbl">Снять фото</span></button>
+        <button class="btn btn-outline" style="flex:1;" onclick="document.getElementById('editPhotoFile').click()">🖼️ <span id="editPhotoGalLbl">Из галереи</span></button>
+      </div>
+      <input type="file" id="editPhotoCam"  accept="image/*" capture="environment" style="display:none;" onchange="handleEditPhoto(this)">
+      <input type="file" id="editPhotoFile" accept="image/*" style="display:none;" onchange="handleEditPhoto(this)">
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-outline" id="editCancelBtn" onclick="closeEdit()">Отмена</button>
+      <button class="btn btn-primary" id="editSaveBtn" onclick="saveEdit()">💾 Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//   CONFIG
+// ═══════════════════════════════════════════════════════════════════
+const SUPABASE_URL      = 'https://xiwkqotyhcejzbeymovi.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhpd2txb3R5aGNlanpiZXltb3ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNDY1NzEsImV4cCI6MjA5NDkyMjU3MX0.xrwb98Mccs_aKd3FeL-G9C8d2C7QXq1EBtYok3CMDSM';
+
+// ═══════════════════════════════════════════════════════════════════
+//   SERVICES
+//   These are DEFAULTS only. On startup loadServices() pulls the live
+//   catalog from Supabase (get_services) so the worker app and the
+//   admin panel always show the SAME services & prices.
+// ═══════════════════════════════════════════════════════════════════
+const SERVICES = {
+  express:   { ru: 'Экспресс мойка',   uz: 'Ekspress yuvish',     price: 50000,  dur: 15  },
+  premium:   { ru: 'Премиум мойка',    uz: 'Premium yuvish',      price: 120000, dur: 30  },
+  deluxe:    { ru: 'Делюкс + Воск',    uz: 'Deluxe + Vosk',       price: 180000, dur: 45  },
+  detail:    { ru: 'Полная детейлинг', uz: "To'liq deteyling",    price: 400000, dur: 120 },
+  engine:    { ru: 'Чистка двигателя', uz: 'Dvigatel tozalash',   price: 150000, dur: 30  },
+  headlight: { ru: 'Полировка фар',    uz: 'Faralarni silliqlash',price: 130000, dur: 45  },
+};
+
+// Pull the shared catalog from Supabase; fall back to defaults on error.
+async function loadServices() {
+  try {
+    const { data, error } = await sb.rpc('get_services');
+    if (error) throw error;
+    const list = Array.isArray(data) ? data : (data || []);
+    if (list.length) {
+      // Replace the contents of SERVICES (keep the same object reference)
+      Object.keys(SERVICES).forEach(k => delete SERVICES[k]);
+      list.forEach(s => {
+        SERVICES[s.key] = {
+          ru: s.name_ru, uz: s.name_uz || s.name_ru,
+          price: s.price, dur: s.dur || 30
+        };
+      });
+    }
+  } catch (e) {
+    console.warn('loadServices failed, using defaults:', e);
+  }
+  buildServiceGrid();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//   CAR BRANDS & MODELS
+//   Popular Uzbekistan brands listed first, rest alphabetical.
+// ═══════════════════════════════════════════════════════════════════
+const BRANDS = {
+  'Chevrolet':   ['Tahoe','Traverse','Trailblazer','Equinox','Malibu','Captiva','Tracker','Onix',
+                  'Monza','Orlando','Epica','Gentra','Cobalt','Lacetti','Nexia 3','Nexia','Spark',
+                  'Matiz','Damas','Labo','Aveo','Cruze','Tico','Tacuma','Camaro','Corvette'],
+  'Kia':         ['Sonet','K5','K8','K9','Sportage','Sorento','Seltos','Carnival','Cerato',
+                  'Rio','Soul','Stinger','Telluride'],
+  'Hyundai':     ['Elantra','Sonata','Tucson','Santa Fe','Accent','Creta','Palisade',
+                  'Venue','Kona','Ioniq 5','Ioniq 6'],
+  'BYD':         ['Song Plus','Song Pro','Sealion','Chazor','Yuan Up','Seagull',
+                  'e2','Seal 6','Atto 8','Atto 3','Tang','Han'],
+  'Chery':       ['Tiggo 9','Tiggo 8','Tiggo 8 Pro','Arrizo 8','Tiggo 7','Tiggo 7 Pro','Tiggo 4'],
+  'Geely':       ['Coolray','Tugella','Atlas','Emgrand','Monjaro','Okavango'],
+  'Haval':       ['Jolion','Dargo','F7','H6','H9','M6'],
+  'Changan':     ['CS75','CS55','CS85','Eado','UNI-K','UNI-T'],
+  'Leapmotor':   ['C01','C11','T03','C10'],
+  'AION':        ['S','V','Y','LX'],
+  'Deepal':      ['S7','L07','SL03'],
+  'Omoda':       ['C5','S5'],
+  'Jaecoo':      ['J7','J8'],
+  'Toyota':      ['Camry','Corolla','RAV4','Land Cruiser','Highlander','Prius','Yaris','Fortuner'],
+  'Honda':       ['Accord','Civic','CR-V','Pilot','HR-V','Odyssey'],
+  'Nissan':      ['Altima','Sentra','X-Trail','Patrol','Qashqai','Murano'],
+  'Mazda':       ['Mazda 3','Mazda 6','CX-5','CX-9','CX-30','CX-50'],
+  'Suzuki':      ['Swift','Vitara','Jimny','S-Cross','Baleno'],
+  'Lexus':       ['ES','RX','LX','NX','IS','GX'],
+  'BMW':         ['3 Series','5 Series','7 Series','X1','X3','X5','X6','X7','iX'],
+  'Mercedes':    ['A-Class','C-Class','E-Class','S-Class','GLC','GLE','GLS'],
+  'Volkswagen':  ['Polo','Jetta','Tiguan','Touareg','Passat','Golf'],
+  'Audi':        ['A3','A4','A6','Q3','Q5','Q7','Q8','e-tron'],
+  'Porsche':     ['Cayenne','Macan','911','Panamera','Taycan'],
+  'Tesla':       ['Model 3','Model S','Model X','Model Y'],
+  'Ford':        ['Focus','Mondeo','Explorer','Mustang','F-150'],
+  'Renault':     ['Logan','Duster','Arkana','Sandero','Kaptur'],
+  'Peugeot':     ['308','408','508','2008','3008','5008'],
+};
+
+// ═══════════════════════════════════════════════════════════════════
+//   STRINGS (bilingual)
+// ═══════════════════════════════════════════════════════════════════
+const S = {
+  ru: {
+    queueTitle:'📋 Очередь', addTitle:'➕ Принять авто',
+    bookingsTitle:'🔔 Заявки на бронь', navBookingsLabel:'Брони',
+    lPlate:'Гос. номер', lBrand:'Марка автомобиля', lModel:'Модель',
+    lService:'Услуга', lPayType:'Способ оплаты', lPayStatus:'Статус оплаты',
+    lCash:'Наличные', lCard:'Карта', lUnpaid:'Оплатит позже', lPaid:'Уже оплачено',
+    navQueueLabel:'Очередь', navAddLabel:'Принять',
+    submitLabel:'✅ Добавить в очередь',
+    badgeQueue:'⏳ В очереди', badgeWashing:'🚿 Моется', badgeDone:'✅ Готово',
+    badgeUnpaid:'❌ Не оплачено', badgePending:'⏳ Ожидает', badgePaid:'✅ Оплачено',
+    startWash:'▶️ Начать мойку', markDone:'✅ Завершить', markPaid:'💳 Оплачено',
+    queueEmpty:'Очередь пуста', queueEmptyHint:'Новые автомобили появятся здесь',
+    loading:'Загрузка…', savedOk:'✅ Авто добавлено!', saveErr:'❌ Ошибка при сохранении',
+    updOk:'✅ Статус обновлён', updErr:'❌ Ошибка обновления',
+    invalidPlate:'⚠️ Неверный формат номера',
+    noService:'⚠️ Выберите услугу',
+    noCustomSvc:'⚠️ Укажите название и цену услуги',
+    loyaltyLabel:'⭐ Постоянный клиент',
+    visitLabel:'визит(ов)',
+    physLico:'👤 Физ. лицо',
+    yurLico:'🏢 Юр. лицо',
+    selectBrandPlh:'— выберите марку —',
+    selectModelPlh:'— выберите модель —',
+    otherOption:'Другое',
+    plateHint:'✏️ Без пробелов — например 01A123AA',
+    lWashTime:'Время мойки', washTimeHint:'🕒 Во сколько начать мойку',
+    customSvc:'➕ Другая',
+    customSvcName:'Название услуги',
+    customSvcPrice:'Цена (сум)',
+    editBtn:'✏️ Изменить',
+    editTitle:'✏️ Изменить запись',
+    editSave:'💾 Сохранить',
+    editCancel:'Отмена',
+    editAmount:'Сумма (сум)',
+    editedOk:'✅ Запись обновлена',
+    notAuth:'⛔ Нет доступа',
+    notAuthMsg:'Обратитесь к администратору, чтобы получить доступ к системе.',
+  },
+  uz: {
+    queueTitle:'📋 Navbat', addTitle:'➕ Avto qabul qilish',
+    lPlate:'Davlat raqami', lBrand:'Avtomobil markasi', lModel:'Model',
+    lService:'Xizmat', lPayType:"To'lov turi", lPayStatus:"To'lov holati",
+    lCash:'Naqd', lCard:'Karta', lUnpaid:"Keyinroq to'laydi", lPaid:"Allaqachon to'landi",
+    bookingsTitle:'🔔 Bron arizalari', navBookingsLabel:'Bronlar',
+    navQueueLabel:'Navbat', navAddLabel:'Qabul',
+    submitLabel:"✅ Navbatga qo'shish",
+    badgeQueue:'⏳ Navbatda', badgeWashing:'🚿 Yuvilmoqda', badgeDone:'✅ Tayyor',
+    badgeUnpaid:"❌ To'lanmagan", badgePending:"⏳ Kutilmoqda", badgePaid:"✅ To'langan",
+    startWash:'▶️ Yuvinishni boshlash', markDone:'✅ Tugatish', markPaid:"💳 To'landi",
+    queueEmpty:"Navbat bo'sh", queueEmptyHint:"Yangi avtomobillar bu yerda ko'rinadi",
+    loading:'Yuklanmoqda…', savedOk:"✅ Avto qo'shildi!", saveErr:'❌ Saqlashda xato',
+    updOk:'✅ Holat yangilandi', updErr:'❌ Yangilashda xato',
+    invalidPlate:"⚠️ Noto'g'ri raqam formati",
+    noService:'⚠️ Xizmatni tanlang',
+    noCustomSvc:"⚠️ Xizmat nomi va narxini kiriting",
+    loyaltyLabel:'⭐ Doimiy mijoz',
+    visitLabel:'tashrif',
+    physLico:'👤 Jismoniy shaxs',
+    yurLico:'🏢 Yuridik shaxs',
+    selectBrandPlh:'— marka tanlang —',
+    selectModelPlh:'— model tanlang —',
+    otherOption:'Boshqa',
+    plateHint:'✏️ Probelsiz — masalan 01A123AA',
+    lWashTime:'Yuvish vaqti', washTimeHint:'🕒 Yuvishni necha da boshlash',
+    customSvc:'➕ Boshqa',
+    customSvcName:'Xizmat nomi',
+    customSvcPrice:"Narx (so'm)",
+    editBtn:"✏️ O'zgartirish",
+    editTitle:"✏️ Yozuvni o'zgartirish",
+    editSave:'💾 Saqlash',
+    editCancel:'Bekor qilish',
+    editAmount:"Summa (so'm)",
+    editedOk:'✅ Yozuv yangilandi',
+    notAuth:"⛔ Ruxsat yo'q",
+    notAuthMsg:"Tizimga kirish uchun administrator bilan bog'laning.",
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+//   STATE
+// ═══════════════════════════════════════════════════════════════════
+let tgUser     = null;
+let workerInfo = null;
+let lang       = 'ru';
+let sb         = null;
+
+let formState = {
+  plate:       '',
+  brand:       '',
+  model:       '',
+  ownerType:   '',
+  serviceKey:  '',
+  customName:  '',
+  customPrice: 0,
+  payType:     'cash',
+  payStatus:   'paid',
+  washTime:    '',
+};
+
+// ═══════════════════════════════════════════════════════════════════
+//   INIT
+// ═══════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', async () => {
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    // Force a light chrome — the app is a fixed light theme, never dark
+    try { tg.setHeaderColor && tg.setHeaderColor('#ffffff'); } catch(e) {}
+    try { tg.setBackgroundColor && tg.setBackgroundColor('#f7f9fc'); } catch(e) {}
+    try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch(e) {}
+    tgUser = tg.initDataUnsafe?.user || null;
+  }
+
+  try {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } catch(e) {
+    showAuthError('Ошибка инициализации базы данных');
+    return;
+  }
+
+  if (!tgUser?.username) {
+    showAuthError(
+      'Откройте приложение через Telegram',
+      'This app must be opened inside Telegram.'
+    );
+    return;
+  }
+
+  await checkWorkerAccess();
+});
+
+async function checkWorkerAccess() {
+  try {
+    const { data, error } = await sb.rpc('verify_worker', {
+      p_telegram_username: tgUser.username
+    });
+    if (error) throw error;
+    if (!data?.authorized) {
+      showAuthError(S[lang].notAuth, S[lang].notAuthMsg);
+      return;
+    }
+    workerInfo = { name: data.name, role: data.role };
+    startApp();
+  } catch(e) {
+    showAuthError('Ошибка проверки доступа: ' + e.message);
+  }
+}
+
+function showAuthError(title, msg) {
+  document.getElementById('authTitle').textContent = title || '⛔ Нет доступа';
+  document.getElementById('authMsg').textContent   = msg   || S[lang].notAuthMsg;
+  document.getElementById('authScreen').style.display = 'flex';
+}
+
+function startApp() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('workerName').textContent = workerInfo.name;
+  document.getElementById('langToggle').textContent = lang === 'ru' ? 'RU' : 'UZ';
+
+  buildBrandSelect();
+  buildServiceGrid();
+  loadServices();      // refresh catalog from Supabase (shared with admin)
+  applyLang();
+  loadQueue();
+  checkPhotoColumnExists();   // verify photo_url column exists in Supabase
+
+  // Auto-capture this worker's chat id (silent) so booking alerts can reach them.
+  // Auth still uses username; you never enter an id by hand.
+  try {
+    if (tgUser && tgUser.id) {
+      sb.rpc('set_worker_chat_id', { p_username: tgUser.username, p_chat: tgUser.id });
+    }
+  } catch(e) {}
+
+  setInterval(loadQueue, 15000);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//   LANGUAGE
+// ═══════════════════════════════════════════════════════════════════
+function toggleLang() {
+  lang = lang === 'ru' ? 'uz' : 'ru';
+  document.getElementById('langToggle').textContent = lang === 'ru' ? 'RU' : 'UZ';
+  applyLang();
+  buildServiceGrid();
+  buildBrandSelect();   // refreshes placeholder translations
+  loadQueue();
+}
+
+function applyLang() {
+  const L = S[lang];
+  const ids = ['queueTitle','addTitle','bookingsTitle','navBookingsLabel','lPlate','lBrand','lModel','lService',
+               'lPayType','lPayStatus','lCash','lCard','lUnpaid','lPaid',
+               'navQueueLabel','navAddLabel','submitLabel','plateHint',
+               'lWashTime','washTimeHint'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = L[id] || el.textContent;
+  });
+
+  // Plate input placeholder follows language too
+  const plateInput = document.getElementById('inputPlate');
+  if (plateInput) plateInput.placeholder = '01A123AA';
+
+  // Queue filter labels
+  const allLbl  = document.getElementById('filterAllLbl');
+  const mineLbl = document.getElementById('filterMineLbl');
+  if (allLbl)  allLbl.textContent  = lang === 'uz' ? 'Barcha' : 'Все';
+  if (mineLbl) mineLbl.textContent = lang === 'uz' ? 'Mening' : 'Мои';
+
+  // Update owner type badge text if visible
+  const badge = document.getElementById('ownerTypeBadge');
+  if (badge && formState.ownerType) {
+    renderOwnerBadge(formState.ownerType);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//   NAVIGATION
+// ═══════════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+  if (tab === 'queue') {
+    document.getElementById('pageQueue').classList.add('active');
+    document.getElementById('navQueue').classList.add('active');
+    loadQueue();
+  } else if (tab === 'bookings') {
+    document.getElementById('pageBookings').classList.add('active');
+    document.getElementById('navBookings').classList.add('active');
+    loadPendingForWorker();
+  } else {
+    document.getElementById('pageAdd').classList.add('active');
+    document.getElementById('navAdd').classList.add('active');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//   QUEUE
+// ═══════════════════════════════════════════════════════════════════
+async function loadQueue() {
+  const container = document.getElementById('queueList');
+  try {
+    const { data, error } = await sb.rpc('get_queue_for_worker', {
+      p_telegram_username: tgUser.username
+    });
+    if (error) throw error;
+    _lastQueue = Array.isArray(data) ? data : (data || []);
+    renderQueue(_lastQueue);
+  } catch(e) {
+    container.innerHTML = `<div class="empty"><p>❌ ${e.message}</p></div>`;
+  }
+  loadPendingForWorker();
+}
+
+// ── Pending customer bookings (approve/decline from the worker app) ──
+let _pendingW = [];
+async function loadPendingForWorker() {
+  try {
+    const { data } = await sb.rpc('get_pending_bookings');
+    _pendingW = Array.isArray(data) ? data : [];
+  } catch(e) { _pendingW = []; }
+  renderPendingW();
+}
+function updateBookingsBadge() {
+  const badge = document.getElementById('bookingsBadge');
+  if (badge) {
+    badge.textContent = _pendingW.length;
+    badge.style.display = _pendingW.length ? 'inline-block' : 'none';
+  }
+}
+function renderPendingW() {
+  updateBookingsBadge();
+  const box = document.getElementById('pendingList');
+  if (!box) return;
+  if (!_pendingW.length) {
+    box.innerHTML = `<div class="empty"><div class="icon">🎉</div><p>${lang==='uz'?"Yangi arizalar yo'q":'Новых заявок нет'}</p></div>`;
+    return;
+  }
+  const uz = lang==='uz';
+  box.innerHTML = _pendingW.map(b => {
+      const svc = SERVICES[b.service]?.[uz?'uz':'ru'] || b.service_name || b.service || '';
+      const phone = (b.phone||'').replace(/[^\d+]/g,'');
+      const st = b.status || 'pending';
+      const approved = st === 'approved';
+      const declined = st === 'declined';
+      const stripe = declined ? '#ef4444' : approved ? '#10b981' : '#f59e0b';
+      const statusBadge = declined
+        ? `<span class="badge badge-unpaid">❌ ${uz?'Rad etilgan':'Отклонён'}</span>`
+        : approved
+        ? `<span class="badge badge-paid">✅ ${uz?'Tasdiqlangan':'Подтверждено'}</span>`
+        : `<span class="badge badge-pending">⏳ ${uz?'Kutilmoqda':'Ожидает'}</span>`;
+      // pending → approve/decline; approved → "car arrived" + cancel; declined → nothing
+      const decideRow = declined
+        ? ''
+        : approved
+        ? `<div class="actions">
+             <button class="btn btn-primary" onclick="checkinW('${b.id}')">🚗 ${uz?'Mashina keldi':'Машина приехала'}</button>
+             <button class="btn btn-danger" onclick="declineW('${b.id}')">❌ ${uz?'Bekor qilish':'Отменить'}</button>
+           </div>`
+        : `<div class="actions">
+             <button class="btn btn-success" onclick="approveW('${b.id}')">✅ ${uz?'Tasdiqlash':'Подтвердить'}</button>
+             <button class="btn btn-danger" onclick="declineW('${b.id}')">❌ ${uz?'Rad etish':'Отклонить'}</button>
+           </div>`;
+      return `<div class="card" style="border-left:4px solid ${stripe};">
+        <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="openDetail('${b.id}')">
+          <span class="plate">${(b.plate||'').replace(' | ',' ')}</span>
+          ${statusBadge}
+        </div>
+        <div class="car-meta">
+          <span>📍 <strong>${b.branch||'—'}</strong></span>
+          <span>🧼 <strong>${svc}</strong></span>
+          <span>💰 <strong>${(b.amount||0).toLocaleString('ru-RU')} ${uz?"so'm":'сум'}</strong></span>
+          <span>🗓️ <strong>${b.req_date||''} ${b.req_time||''}</strong></span>
+        </div>
+        ${b.phone?`<button class="btn btn-primary" style="width:100%;margin-top:10px;" onclick="callPhone('${phone}')">📞 ${uz?'Qo\'ng\'iroq':'Позвонить'}: ${b.phone}</button>`:''}
+        ${b.comment?`<div style="background:#eff4ff;border-radius:10px;padding:8px 12px;margin-top:8px;font-size:13px;">💬 ${b.comment}</div>`:''}
+        ${decideRow}
+        <div class="actions">
+          <button class="btn btn-outline" onclick="openDetail('${b.id}')">👁️ ${uz?'Batafsil':'Подробнее'}</button>
+          <button class="btn btn-outline" onclick="commentBooking('${b.id}')">💬 ${uz?'Izoh':'Коммент'}</button>
+          <button class="btn btn-outline" style="color:#ef4444;border-color:#ef4444;" onclick="deleteBookingW('${b.id}')">🗑️</button>
+        </div>
+      </div>`;
+    }).join('');
+}
+
+// ── Detail modal — full record in a bigger window ───────────────────
+function openDetail(id) {
+  const b = (_pendingW.find(x=>x.id===id)) || (_lastQueue||[]).find(x=>x.id===id);
+  if (!b) return;
+  const uz = lang==='uz';
+  const svc = SERVICES[b.service]?.[uz?'uz':'ru'] || b.service_name || b.service || '';
+  const photoUrl = b.photo_url || localStorage.getItem('photo_'+b.id) || '';
+  const dur = (b.wash_started_at && b.wash_finished_at)
+    ? Math.max(0,Math.round((new Date(b.wash_finished_at)-new Date(b.wash_started_at))/60000)) + (uz?' daq':' мин')
+    : (b.duration?b.duration+(uz?' daq':' мин'):'—');
+  const row = (ic,label,val)=> val?`<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--sep);font-size:14px;"><span style="color:var(--hint);">${ic} ${label}</span><strong style="text-align:right;">${val}</strong></div>`:'';
+  document.getElementById('detailBody').innerHTML =
+    `<div class="plate" style="text-align:center;margin-bottom:12px;">${(b.plate||'').replace(' | ',' ')}</div>` +
+    (photoUrl?`<img src="${photoUrl}" style="width:100%;max-height:200px;object-fit:cover;border-radius:12px;margin-bottom:10px;" onclick="showPhotoUrl('${photoUrl}')">`:'') +
+    row('📍',uz?'Filial':'Филиал', b.branch) +
+    row('🚙',uz?'Avto':'Авто', [b.brand,b.model].filter(Boolean).join(' ')) +
+    row('🧼',uz?'Xizmat':'Услуга', svc) +
+    row('💰',uz?'Summa':'Сумма', (b.amount||0).toLocaleString('ru-RU')+(uz?" so'm":' сум')) +
+    row('💳',uz?'To\'lov':'Оплата', b.payment_type==='card'?(uz?'Karta':'Карта'):(uz?'Naqd':'Наличные')) +
+    row('📋',uz?'Holat':'Статус оплаты', b.payment_status==='paid'?(uz?'To\'langan':'Оплачено'):(uz?'To\'lanmagan':'Не оплачено')) +
+    row('🚿',uz?'Yuvish':'Мойка', b.workflow_status) +
+    row('🗓️',uz?'Vaqt':'Время', (b.req_date||'')+' '+(b.req_time||b.wash_time||'')) +
+    row('⏱',uz?'Davomiyligi':'Длительность', dur) +
+    row('📞',uz?'Telefon':'Телефон', b.phone) +
+    row('💬',uz?'Izoh':'Комментарий', b.comment) +
+    (b.phone?`<button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="callPhone('${(b.phone||'').replace(/[^\d+]/g,'')}')">📞 ${uz?'Qo\'ng\'iroq':'Позвонить'}</button>`:'');
+  document.getElementById('detailModal').style.display='flex';
+}
+function closeDetail(){ document.getElementById('detailModal').style.display='none'; }
+async function checkinW(id) {
+  try {
+    const { error } = await sb.rpc('checkin_booking', { p_id:id });
+    if (error) throw error;
+    toast(lang==='uz'?'Navbatga qo\'shildi ✓':'Добавлено в очередь ✓');
+    loadPendingForWorker();
+    loadQueue();
+  } catch(e) { toast('❌ '+e.message, true); }
+}
+async function approveW(id) {
+  try {
+    const { error } = await sb.rpc('set_booking_status', { p_id:id, p_status:'approved', p_reason:'' });
+    if (error) throw error;
+    toast(lang==='uz'?'Tasdiqlandi ✓':'Подтверждено ✓');
+    loadPendingForWorker();
+    loadQueue();
+  } catch(e) { toast('❌ '+e.message, true); }
+}
+async function declineW(id) {
+  const reason = await askText(lang==='uz'?'Sababi (ixtiyoriy):':'Причина отказа (необязательно):', '');
+  if (reason === null) return;
+  try {
+    const { error } = await sb.rpc('set_booking_status', { p_id:id, p_status:'declined', p_reason:reason||'' });
+    if (error) throw error;
+    toast(lang==='uz'?'Rad etildi':'Отклонено');
+    loadPendingForWorker();
+  } catch(e) { toast('❌ '+e.message, true); }
+}
+async function commentBooking(id) {
+  const cur = (_pendingW.find(x=>x.id===id)||{}).comment || '';
+  const txt = await askText(lang==='uz'?'Izoh (komment):':'Комментарий:', cur);
+  if (txt === null) return;
+  try {
+    const { error } = await sb.rpc('set_booking_comment', { p_id:id, p_comment:txt });
+    if (error) throw error;
+    toast(lang==='uz'?'Izoh saqlandi ✓':'Комментарий сохранён ✓');
+    loadPendingForWorker();
+  } catch(e) { toast('❌ '+e.message, true); }
+}
+async function deleteBookingW(id) {
+  const uz = lang==='uz';
+  const pass = await askText(uz?'Parol (o\'chirish uchun):':'Пароль для удаления:', '', {password:true});
+  if (pass === null) return;
+  try {
+    const v = await sb.rpc('verify_delete_password', { p_password: (pass||'').trim() });
+    if (v.error || !(v.data && v.data.ok === true)) {
+      toast(uz?'Noto\'g\'ri parol':'Неверный пароль', true); return;
+    }
+    const { error } = await sb.rpc('delete_booking_row', { p_id: id });
+    if (error) throw error;
+    toast(uz?'O\'chirildi ✓':'Удалено ✓');
+    loadPendingForWorker();
+    loadQueue();
+  } catch(e) { toast('❌ '+e.message, true); }
+}
+// Delete/comment for a normal queue car (same helpers)
+async function deleteCarW(id) {
+  const uz = lang==='uz';
+  const pass = await askText(uz?'Parol (o\'chirish uchun):':'Пароль для удаления:', '', {password:true});
+  if (pass === null) return;
+  try {
+    const v = await sb.rpc('verify_delete_password', { p_password: (pass||'').trim() });
+    if (v.error || !(v.data && v.data.ok === true)) { toast(uz?'Noto\'g\'ri parol':'Неверный пароль', true); return; }
+    const { error } = await sb.rpc('delete_booking_row', { p_id: id });
+    if (error) throw error;
+    toast(uz?'O\'chirildi ✓':'Удалено ✓');
+    loadQueue();
+  } catch(e) { toast('❌ '+e.message, true); }
+}
+async function commentCarW(id, cur) {
+  const txt = await askText(lang==='uz'?'Izoh:':'Комментарий:', cur||'');
+  if (txt === null) return;
+  try {
+    const { error } = await sb.rpc('set_booking_comment', { p_id:id, p_comment:txt });
+    if (error) throw error;
+    toast(lang==='uz'?'Izoh saqlandi ✓':'Комментарий сохранён ✓');
+    loadQueue();
+  } catch(e) { toast('❌ '+e.message, true); }
+}
+
+function renderQueue(queue) {
+  const container = document.getElementById('queueList');
+  const filtered  = applyQueueFilter(queue);
+
+  // Update filter label counts
+  const allLbl  = document.getElementById('filterAllLbl');
+  const mineLbl = document.getElementById('filterMineLbl');
+  const me = (workerInfo?.username || tgUser?.username || '').toLowerCase();
+  const mineCount = queue.filter(b => (b.washed_by||'').toLowerCase()===me||(b.added_by||'').toLowerCase()===me).length;
+  if (allLbl)  allLbl.textContent  = (lang==='uz'?'Barcha':'Все') + ' (' + queue.length + ')';
+  if (mineLbl) mineLbl.textContent = (lang==='uz'?'Mening':'Мои') + ' (' + mineCount + ')';
+
+  if (!filtered.length) {
+    container.innerHTML = `
+      <div class="empty">
+        <div class="icon">${_queueFilter==='mine'?'👤':'🎉'}</div>
+        <p>${_queueFilter==='mine' ? (lang==='uz'?'Sizning avtolaringiz yo\'q':'У вас нет своих авто') : S[lang].queueEmpty}</p>
+        <p style="font-size:13px;margin-top:6px;color:var(--hint)">${S[lang].queueEmptyHint}</p>
+      </div>`;
+    return;
+  }
+  container.innerHTML = filtered.map(b => buildCarCard(b)).join('');
+}
+
+function buildCarCard(b) {
+  const L  = S[lang];
+  const wf = b.workflow_status;
+  const py = b.payment_status;
+
+  const wfBadge = {
+    queue:   `<span class="badge badge-queue">${L.badgeQueue}</span>`,
+    washing: `<span class="badge badge-washing">${L.badgeWashing}</span>`,
+    done:    `<span class="badge badge-done">${L.badgeDone}</span>`,
+  }[wf] || '';
+
+  const pyBadge = {
+    'not-paid': `<span class="badge badge-unpaid">${L.badgeUnpaid}</span>`,
+    pending:    `<span class="badge badge-pending">${L.badgePending}</span>`,
+    paid:       `<span class="badge badge-paid">${L.badgePaid}</span>`,
+  }[py] || '';
+
+  const svcName = SERVICES[b.service]?.[lang === 'uz' ? 'uz' : 'ru']
+                  || b.service_name || b.service;
+  const unit    = lang === 'uz' ? "so'm" : 'сум';
+  const amtFmt  = (b.amount || 0).toLocaleString('ru-RU') + ' ' + unit;
+
+  // Owner type badge from plate or stored owner_type
+  let ownerTag = '';
+  if (b.owner_type === 'legal') {
+    ownerTag = `<span class="badge" style="background:#fef3c7;color:#92400e">${L.yurLico}</span>`;
+  } else if (b.owner_type === 'individual') {
+    ownerTag = `<span class="badge" style="background:#dbeafe;color:#1d4ed8">${L.physLico}</span>`;
+  } else {
+    // Try to derive from plate format
+    const det = detectOwnerType(b.plate);
+    if (det === 'legal') {
+      ownerTag = `<span class="badge" style="background:#fef3c7;color:#92400e">${L.yurLico}</span>`;
+    } else if (det === 'individual') {
+      ownerTag = `<span class="badge" style="background:#dbeafe;color:#1d4ed8">${L.physLico}</span>`;
+    }
+  }
+
+  // Brand/model line
+  const brandModel = [b.brand, b.model].filter(Boolean).join(' ');
+  const brandLine  = brandModel
+    ? `<span>🚙 <strong>${brandModel}</strong></span>`
+    : '';
+
+  // Payment type label
+  const payTypeLabel = b.payment_type === 'card'
+    ? `<span style="background:#ede9fe;color:#6d28d9;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">💳 ${lang==='uz'?'Karta':'Карта'}</span>`
+    : `<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">💵 ${lang==='uz'?'Naqd':'Нал'}</span>`;
+
+  // Time display
+  const washTimeDisplay = b.wash_time
+    ? `<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">🕒 ${b.wash_time}</span>`
+    : '';
+
+  // Photo — prefer Supabase URL stored in booking, fall back to local cache
+  const photoUrl = b.photo_url || localStorage.getItem('photo_' + b.id) || '';
+  const hasPhoto = !!photoUrl;
+  const photoTag = hasPhoto
+    ? `<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">📷 ${lang==='uz'?'Rasm bor':'Фото'}</span>`
+    : '';
+
+  let actions = '';
+  if (wf === 'queue') {
+    actions += `<button class="btn btn-primary" onclick="updateWF('${b.id}','washing')">${L.startWash}</button>`;
+  }
+  if (wf === 'washing') {
+    actions += `<button class="btn btn-success" onclick="updateWF('${b.id}','done')">${L.markDone}</button>`;
+  }
+  if (py !== 'paid') {
+    actions += `<button class="btn btn-pay" onclick="markPaid('${b.id}')">${L.markPaid}</button>`;
+  }
+  // Edit is always available (incl. after the wash is done)
+  actions += `<button class="btn btn-outline" onclick='openEdit(${JSON.stringify(b)})'>${L.editBtn}</button>`;
+  // Comment + delete on every car record
+  const cmt = (b.comment||'').replace(/'/g,"\\'");
+  actions += `<button class="btn btn-outline" onclick="commentCarW('${b.id}','${cmt}')">💬</button>`;
+  actions += `<button class="btn btn-outline" style="color:#ef4444;border-color:#ef4444;" onclick="deleteCarW('${b.id}')">🗑️</button>`;
+
+  // Photo preview (Supabase URL takes priority over local cache)
+  const photoSection = photoUrl
+    ? `<div style="margin-top:8px;cursor:pointer;" onclick="showPhotoUrl('${photoUrl}')">
+        <img src="${photoUrl}" style="width:100%;max-height:140px;object-fit:cover;border-radius:10px;border:2px solid var(--sep);" alt="car photo"
+             onerror="this.parentElement.style.display='none'">
+       </div>`
+    : '';
+
+  return `
+    <div class="card" id="card-${b.id}">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;cursor:pointer;" onclick="openDetail('${b.id}')">
+        <span class="plate">${b.plate.replace(' | ', ' ')}</span>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">${wfBadge}${pyBadge}${ownerTag}</div>
+      </div>
+      <div class="car-meta" style="margin-top:6px;">
+        ${brandLine}
+        <span>🧼 <strong>${svcName}</strong></span>
+        <span>💰 <strong>${amtFmt}</strong></span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">
+        ${payTypeLabel}${washTimeDisplay}${photoTag}
+      </div>
+      ${b.comment ? `<div style="background:#eff4ff;border-radius:10px;padding:8px 12px;margin-top:8px;font-size:13px;">💬 ${b.comment}</div>` : ''}
+      ${photoSection}
+      ${actions ? `<div class="actions">${actions}</div>` : ''}
+    </div>`;
+}
+
+async function updateWF(bookingId, newStatus) {
+  try {
+    const { error } = await sb.rpc('worker_update_booking', {
+      p_telegram_username: tgUser.username,
+      p_booking_id:        bookingId,
+      p_workflow_status:   newStatus,
+      p_payment_status:    null,
+    });
+    if (error) throw error;
+    toast(S[lang].updOk);
+    loadQueue();
+  } catch(e) {
+    toast(S[lang].updErr + ': ' + e.message, true);
+  }
+}
+
+async function markPaid(bookingId) {
+  try {
+    const { error } = await sb.rpc('worker_update_booking', {
+      p_telegram_username: tgUser.username,
+      p_booking_id:        bookingId,
+      p_workflow_status:   null,
+      p_payment_status:    'paid',
+    });
+    if (error) throw error;
+    toast(S[lang].updOk);
+    loadQueue();
+  } catch(e) {
+    toast(S[lang].updErr + ': ' + e.message, true);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//   EDIT RECORD (service type + amount) — works even after "done"
+// ═══════════════════════════════════════════════════════════════════
+let editState = { id:'', plate:'', serviceKey:'', customName:'', amount:0,
+                  workflowStatus:'queue', payType:'cash', payStatus:'not-paid',
+                  washTime:'', photoDataUrl:'' };
+
+// ── Queue filter (all / mine) ─────────────────────────────────────
+let _queueFilter = 'all';
+let _lastQueue   = [];
+
+function setQueueFilter(f) {
+  _queueFilter = f;
+  document.getElementById('filterAll').classList.toggle('on', f === 'all');
+  document.getElementById('filterMine').classList.toggle('on', f === 'mine');
+  renderQueue(_lastQueue);
+}
+
+function applyQueueFilter(queue) {
+  if (_queueFilter === 'mine') {
+    const me = (workerInfo?.username || tgUser?.username || '').toLowerCase();
+    return queue.filter(b => (b.washed_by || '').toLowerCase() === me || (b.added_by || '').toLowerCase() === me);
+  }
+  return queue;
+}
+
+// ── Plate live preview inside edit modal ──────────────────────────
+function onEditPlateInput() {
+  const raw        = document.getElementById('editPlateInput').value;
+  const normalized = normalizePlate(raw);
+  const wrap       = document.getElementById('editPlateVisualWrap');
+  const vizText    = document.getElementById('editPlateVisualText');
+  const badge      = document.getElementById('editOwnerTypeBadge');
+
+  if (normalized) {
+    editState.plate    = normalized;
+    vizText.textContent = normalized.replace(' | ', ' ');
+    wrap.style.display  = 'flex';
+    const ot = detectOwnerType(normalized);
+    if (ot === 'individual') {
+      badge.textContent   = S[lang].physLico;
+      badge.className     = 'owner-type-badge owner-individual';
+      badge.style.display = 'inline-flex';
+    } else if (ot === 'legal') {
+      badge.textContent   = S[lang].yurLico;
+      badge.className     = 'owner-type-badge owner-legal';
+      badge.style.display = 'inline-flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  } else {
+    editState.plate    = raw.toUpperCase();
+    vizText.textContent = '';
+    wrap.style.display  = 'none';
+    badge.style.display = 'none';
+  }
+}
+
+function setEditWf(v) {
+  editState.workflowStatus = v;
+  ['queue','washing','done'].forEach(k => {
+    document.getElementById('editWf' + k.charAt(0).toUpperCase() + k.slice(1))
+      .classList.toggle('on', k === v);
+  });
+}
+function setEditPayType(v) {
+  editState.payType = v;
+  document.getElementById('editPtCash').classList.toggle('on', v === 'cash');
+  document.getElementById('editPtCard').classList.toggle('on', v === 'card');
+}
+function setEditPayStat(v) {
+  editState.payStatus = v;
+  document.getElementById('editPsUnpaid').classList.toggle('on', v === 'not-paid');
+  document.getElementById('editPsPaid').classList.toggle('on', v === 'paid');
+}
+
+function handleEditPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  // Resize/compress before storing
+  const canvas  = document.createElement('canvas');
+  const img     = new Image();
+  const reader  = new FileReader();
+  reader.onload = e => {
+    img.onload = () => {
+      const MAX = 1200;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else        { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      canvas.width  = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      editState.photoDataUrl  = dataUrl;
+      editState.photoFile     = dataUrlToFile(dataUrl, 'car_' + editState.id + '.jpg');
+      document.getElementById('editPhotoImg').src = dataUrl;
+      document.getElementById('editPhotoPreview').style.display = 'block';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function dataUrlToFile(dataUrl, filename) {
+  const arr  = dataUrl.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8 = new Uint8Array(n);
+  while (n--) u8[n] = bstr.charCodeAt(n);
+  return new File([u8], filename, { type: mime });
+}
+
+// Quick check: does photo_url column exist? Called once on startup.
+async function checkPhotoColumnExists() {
+  try {
+    const { data, error } = await sb.from('bookings')
+      .select('photo_url').limit(1);
+    if (error && error.message && error.message.includes('photo_url')) {
+      console.error('❌ photo_url column missing! Run SQL: ALTER TABLE bookings ADD COLUMN photo_url text;');
+      toast('⚠️ Столбец photo_url отсутствует в Supabase. Запустите SQL-миграцию.', true);
+    } else {
+      console.log('✅ photo_url column exists');
+    }
+  } catch(e) { console.warn('photo column check failed:', e); }
+}
+
+async function uploadPhotoToStorage(file, bookingId) {
+  if (!file || !sb) return null;
+  const path = `bookings/${bookingId}_${Date.now()}.jpg`;
+  const { error } = await sb.storage.from('car-photos').upload(path, file, {
+    upsert: true,
+    contentType: 'image/jpeg',
+  });
+  if (error) throw new Error(error.message);
+  const { data: urlData } = sb.storage.from('car-photos').getPublicUrl(path);
+  return urlData?.publicUrl || null;
+}
+function removeEditPhoto() {
+  editState.photoDataUrl = '';
+  document.getElementById('editPhotoPreview').style.display = 'none';
+  document.getElementById('editPhotoImg').src = '';
+  document.getElementById('editPhotoCam').value  = '';
+  document.getElementById('editPhotoFile').value = '';
+}
+
+function openEdit(b) {
+  const L = S[lang];
+  editState = {
+    id:             b.id,
+    plate:          b.plate           || '',
+    serviceKey:     SERVICES[b.service] ? b.service : 'custom',
+    customName:     SERVICES[b.service] ? '' : (b.service_name || b.service || ''),
+    amount:         b.amount || 0,
+    workflowStatus: b.workflow_status || 'queue',
+    payType:        b.payment_type    || 'cash',
+    payStatus:      b.payment_status  || 'not-paid',
+    washTime:       b.wash_time       || '',
+    photoDataUrl:   b.photo_url       || '',
+  };
+
+  // Labels
+  document.getElementById('editTitle').textContent       = L.editTitle;
+  document.getElementById('editSvcLabel').textContent    = L.lService;
+  document.getElementById('editAmountLabel').textContent = L.editAmount;
+  document.getElementById('editCancelBtn').textContent   = L.editCancel;
+  document.getElementById('editSaveBtn').textContent     = L.editSave;
+  document.getElementById('editCustomName').placeholder  = L.customSvcName;
+  document.getElementById('editPlateLabel').textContent  = L.lPlate;
+  document.getElementById('editWfLabel').textContent     = lang === 'uz' ? 'Yuvish holati' : 'Статус мойки';
+  document.getElementById('editPayTypeLbl').textContent  = L.lPayType;
+  document.getElementById('editPayStatLbl').textContent  = L.lPayStatus;
+  document.getElementById('editTimeLabel').textContent   = L.lWashTime;
+  document.getElementById('editPhotoLabel').textContent  = lang === 'uz' ? 'Avtomobil rasmi' : 'Фото автомобиля';
+  document.getElementById('editPhotoCamLbl').textContent = lang === 'uz' ? 'Rasm olish' : 'Снять фото';
+  document.getElementById('editPhotoGalLbl').textContent = lang === 'uz' ? 'Galereyadan' : 'Из галереи';
+  document.getElementById('editPhotoRemoveBtn').textContent = '🗑️ ' + (lang === 'uz' ? 'Rasmni o\'chirish' : 'Удалить фото');
+
+  // Wf toggle labels
+  document.getElementById('editWfQueueLbl').textContent   = L.badgeQueue.replace(/[⏳🚿✅]\s*/,'');
+  document.getElementById('editWfWashingLbl').textContent = L.badgeWashing.replace(/[⏳🚿✅]\s*/,'');
+  document.getElementById('editWfDoneLbl').textContent    = L.badgeDone.replace(/[⏳🚿✅]\s*/,'');
+  document.getElementById('editPtCashLbl').textContent    = L.lCash;
+  document.getElementById('editPtCardLbl').textContent    = L.lCard;
+  document.getElementById('editPsUnpaidLbl').textContent  = lang === 'uz' ? "To'lanmagan" : 'Не оплачено';
+  document.getElementById('editPsPaidLbl').textContent    = lang === 'uz' ? "To'langan" : 'Оплачено';
+
+  // Plate — populate editable input and trigger visual update
+  const plateRaw = (b.plate || '').replace(' | ', '').replace(/\s/g, '');
+  document.getElementById('editPlateInput').value = plateRaw;
+  onEditPlateInput(); // render visual plate + owner badge
+
+  // Values
+  document.getElementById('editAmount').value    = editState.amount;
+  document.getElementById('editCustomName').value= editState.customName;
+  document.getElementById('editWashTime').value  = editState.washTime;
+
+  // Toggle states
+  setEditWf(editState.workflowStatus);
+  setEditPayType(editState.payType);
+  setEditPayStat(editState.payStatus);
+
+  // Photo — prefer Supabase URL, fall back to local cache
+  const existingPhoto = editState.photoDataUrl
+    || b.photo_url
+    || localStorage.getItem('photo_' + b.id)
+    || '';
+  editState.photoDataUrl = existingPhoto;
+  editState.photoFile    = null; // no new file yet
+  if (existingPhoto) {
+    document.getElementById('editPhotoImg').src = existingPhoto;
+    document.getElementById('editPhotoPreview').style.display = 'block';
+  } else {
+    document.getElementById('editPhotoPreview').style.display = 'none';
+  }
+
+  buildEditSvcGrid();
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeEdit() {
+  document.getElementById('editModal').style.display = 'none';
+}
+
+function showPhotoUrl(url) {
+  if (!url) return;
+  showPhoto(url);
+}
+
+function showPhoto(bookingIdOrUrl) {
+  const url = bookingIdOrUrl.startsWith('http')
+    ? bookingIdOrUrl
+    : (localStorage.getItem('photo_' + bookingIdOrUrl) || '');
+  if (!url) return;
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;padding:16px;';
+  overlay.onclick = () => document.body.removeChild(overlay);
+  const img = document.createElement('img');
+  img.src = url;
+  img.style.cssText = 'max-width:100%;max-height:90vh;border-radius:12px;object-fit:contain;';
+  overlay.appendChild(img);
+  document.body.appendChild(overlay);
+}
+
+function buildEditSvcGrid() {
+  const grid = document.getElementById('editSvcGrid');
+  const unit = lang === 'uz' ? "so'm" : 'сум';
+  let html = Object.entries(SERVICES).map(([key, svc]) => {
+    const name = svc[lang === 'uz' ? 'uz' : 'ru'];
+    const sel  = editState.serviceKey === key ? ' selected' : '';
+    return `<div class="svc-card${sel}" onclick="selectEditSvc('${key}')" id="esvc-${key}">
+      <div class="svc-name">${name}</div>
+      <div class="svc-price">${svc.price.toLocaleString('ru-RU')} ${unit}</div>
+    </div>`;
+  }).join('');
+  const csel = editState.serviceKey === 'custom' ? ' selected' : '';
+  html += `<div class="svc-card${csel}" onclick="selectEditSvc('custom')" id="esvc-custom">
+      <div class="svc-name">${S[lang].customSvc}</div>
+      <div class="svc-price">${S[lang].customSvcName}</div>
+    </div>`;
+  grid.innerHTML = html;
+  document.getElementById('editCustomWrap').style.display =
+    editState.serviceKey === 'custom' ? 'block' : 'none';
+}
+
+function selectEditSvc(key) {
+  editState.serviceKey = key;
+  document.querySelectorAll('#editSvcGrid .svc-card').forEach(c => c.classList.remove('selected'));
+  const el = document.getElementById('esvc-' + key);
+  if (el) el.classList.add('selected');
+  document.getElementById('editCustomWrap').style.display = key === 'custom' ? 'block' : 'none';
+  // Auto-fill amount from the chosen preset
+  if (key !== 'custom' && SERVICES[key]) {
+    document.getElementById('editAmount').value = SERVICES[key].price;
+  }
+}
+
+async function saveEdit() {
+  const key    = editState.serviceKey;
+  const amount = parseInt(document.getElementById('editAmount').value) || 0;
+  const washTime = document.getElementById('editWashTime').value || editState.washTime;
+  let serviceToSend, serviceName;
+
+  if (key === 'custom') {
+    serviceName = (document.getElementById('editCustomName').value || '').trim();
+    if (!serviceName) { toast(S[lang].noCustomSvc, true); return; }
+    serviceToSend = 'custom';
+  } else {
+    serviceToSend = key;
+    serviceName   = SERVICES[key][lang === 'uz' ? 'uz' : 'ru'];
+  }
+  if (amount <= 0) { toast(S[lang].noCustomSvc, true); return; }
+
+  const btn = document.getElementById('editSaveBtn');
+  btn.disabled = true;
+  try {
+    // 1. Update service/amount
+    const { data, error } = await sb.rpc('worker_edit_booking', {
+      p_telegram_username: tgUser.username,
+      p_booking_id:        editState.id,
+      p_service:           serviceToSend,
+      p_service_name:      serviceName,
+      p_amount:            amount,
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+
+    // 2. Update workflow + payment statuses
+    const { error: err2 } = await sb.rpc('worker_update_booking', {
+      p_telegram_username: tgUser.username,
+      p_booking_id:        editState.id,
+      p_workflow_status:   editState.workflowStatus,
+      p_payment_status:    editState.payStatus,
+    });
+    if (err2) throw err2;
+
+    // 3. Upload photo first (so we can save its URL together with other fields)
+    let finalPhotoUrl = '';
+    if (editState.photoFile || (editState.photoDataUrl && editState.photoDataUrl.startsWith('data:'))) {
+      toast(lang === 'uz' ? '📷 Rasm yuklanmoqda…' : '📷 Загружаю фото…');
+      // Try Supabase Storage upload
+      if (editState.photoFile) {
+        try {
+          finalPhotoUrl = await uploadPhotoToStorage(editState.photoFile, editState.id);
+          console.log('✅ Storage upload OK:', finalPhotoUrl);
+        } catch(uploadErr) {
+          console.warn('⚠️ Storage upload failed:', uploadErr.message, '— using base64 fallback');
+        }
+      }
+      // Fallback: compressed base64 directly in photo_url column
+      if (!finalPhotoUrl && editState.photoDataUrl) {
+        finalPhotoUrl = editState.photoDataUrl;
+        console.log('📦 Using base64 fallback, length:', finalPhotoUrl.length);
+      }
+    }
+
+    // 4. Save plate / time / payment / workflow / photo via SECURITY DEFINER RPC
+    //    (direct table updates are blocked by RLS for the anon/worker key)
+    const { data: detData, error: detErr } = await sb.rpc('worker_set_details', {
+      p_telegram_username: tgUser.username,
+      p_booking_id:        editState.id,
+      p_plate:             editState.plate || '',
+      p_wash_time:         washTime || '',
+      p_payment_type:      editState.payType || '',
+      p_payment_status:    editState.payStatus || '',
+      p_workflow_status:   editState.workflowStatus || '',
+      p_photo_url:         finalPhotoUrl || '',
+    });
+    if (detErr) {
+      console.error('❌ worker_set_details failed:', detErr.message);
+      toast('⚠️ ' + (lang==='uz'?'Saqlashda xato':'Ошибка сохранения') + ': ' + detErr.message, true);
+    } else if (detData?.error) {
+      console.error('❌ worker_set_details:', detData.error);
+      toast('⚠️ ' + detData.error, true);
+    } else if (finalPhotoUrl) {
+      console.log('✅ Details + photo saved to Supabase');
+      editState.photoDataUrl = finalPhotoUrl;
+      try { localStorage.setItem('photo_' + editState.id, finalPhotoUrl); } catch(e) {}
+    }
+
+    toast(S[lang].editedOk);
+    closeEdit();
+    loadQueue();
+  } catch(e) {
+    toast(S[lang].updErr + ': ' + e.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//   PLATE INPUT & VISUAL DISPLAY
+// ═══════════════════════════════════════════════════════════════════
+function onPlateInput() {
+  const region     = (document.getElementById('plateRegion') ? document.getElementById('plateRegion').value : '') || '';
+  const rest       = document.getElementById('inputPlate').value;
+  const raw        = region + rest;
+  const normalized = normalizePlate(raw);
+  const wrap       = document.getElementById('plateVisualWrap');
+  const vizText    = document.getElementById('plateVisualText');
+
+  if (normalized) {
+    formState.plate     = normalized;
+    formState.ownerType = detectOwnerType(normalized);
+    vizText.textContent = normalized.replace(' | ', ' ');
+    wrap.style.display  = 'flex';
+    renderOwnerBadge(formState.ownerType);
+  } else {
+    formState.plate     = '';
+    formState.ownerType = '';
+    vizText.textContent = '';
+    wrap.style.display  = 'none';
+  }
+
+  // Loyalty check (debounced)
+  clearTimeout(onPlateInput._t);
+  if (normalized && normalized.length >= 8) {
+    onPlateInput._t = setTimeout(() => checkLoyalty(normalized), 600);
+  } else {
+    document.getElementById('loyaltyNote').style.display = 'none';
+  }
+}
+
+function detectOwnerType(plate) {
+  if (!plate) return null;
+  const s = plate.replace(' | ', ' ').trim();
+  if (/^\d{2} [A-Z] \d{3} [A-Z]{2}$/.test(s)) return 'individual';  // 01 A 123 AA
+  if (/^\d{2} \d{3} [A-Z]{3}$/.test(s))        return 'legal';       // 10 123 AAA
+  return null;
+}
+
+function renderOwnerBadge(ownerType) {
+  const badge = document.getElementById('ownerTypeBadge');
+  if (ownerType === 'individual') {
+    badge.textContent  = S[lang].physLico;
+    badge.className    = 'owner-type-badge owner-individual';
+    badge.style.display = 'inline-flex';
+  } else if (ownerType === 'legal') {
+    badge.textContent  = S[lang].yurLico;
+    badge.className    = 'owner-type-badge owner-legal';
+    badge.style.display = 'inline-flex';
+  } else {
+    badge.textContent  = '';
+    badge.style.display = 'none';
+  }
+}
+
+// ─── Normalise plate ───────────────────────────────────────────────
+function normalizePlate(raw) {
+  let s = raw.toUpperCase().replace(/[|\-]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // ── Individual plates ──────────────────────────────────────────
+  // Already spaced: "01 A 123 AA"
+  let m = s.match(/^(\d{2})\s+([A-Z])\s+(\d{3})\s+([A-Z]{2})$/);
+  if (m) return `${m[1]} | ${m[2]} ${m[3]} ${m[4]}`;
+
+  // Compact: "01A123AA"
+  m = s.replace(/\s/g,'').match(/^(\d{2})([A-Z])(\d{3})([A-Z]{2})$/);
+  if (m) return `${m[1]} | ${m[2]} ${m[3]} ${m[4]}`;
+
+  // ── Legal-entity plates ────────────────────────────────────────
+  // Already spaced: "01 123 AAA"
+  m = s.match(/^(\d{2})\s+(\d{3})\s+([A-Z]{3})$/);
+  if (m) return `${m[1]} | ${m[2]} ${m[3]}`;
+
+  // Compact: "01123AAA"
+  m = s.replace(/\s/g,'').match(/^(\d{2})(\d{3})([A-Z]{3})$/);
+  if (m) return `${m[1]} | ${m[2]} ${m[3]}`;
+
+  return s.length >= 6 ? s : '';
+}
+
+// ─── Loyalty lookup ────────────────────────────────────────────────
+async function checkLoyalty(plate) {
+  try {
+    const { data } = await sb.from('loyalty')
+      .select('visits, tier')
+      .eq('plate', plate.replace(' | ', ' ').replace(/\s/g,''))
+      .single();
+
+    const note = document.getElementById('loyaltyNote');
+    if (data && data.visits > 0) {
+      note.textContent = `${S[lang].loyaltyLabel}: ${data.tier || '🥉 Bronze'} · ${data.visits} ${S[lang].visitLabel}`;
+      note.style.display = 'block';
+    } else {
+      note.style.display = 'none';
+    }
+  } catch { /* ignore */ }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//   BRAND / MODEL DROPDOWNS
+// ═══════════════════════════════════════════════════════════════════
+function buildBrandSelect() {
+  const sel  = document.getElementById('selectBrand');
+  const L    = S[lang];
+  const curr = formState.brand;
+
+  sel.innerHTML = `<option value="">${L.selectBrandPlh}</option>` +
+    Object.keys(BRANDS).map(b =>
+      `<option value="${b}"${curr === b ? ' selected' : ''}>${b}</option>`
+    ).join('') +
+    `<option value="__other__"${curr === '__other__' ? ' selected' : ''}>${L.otherOption}</option>`;
+
+  // Keep model group in sync after brand change
+  if (curr && curr !== '__other__') {
+    buildModelSelect(curr);
+  }
+}
+
+function onBrandChange() {
+  const sel   = document.getElementById('selectBrand');
+  const brand = sel.value;
+  const other = document.getElementById('inputBrandOther');
+  const mg    = document.getElementById('modelGroup');
+
+  if (brand === '__other__') {
+    formState.brand = '';
+    other.style.display = 'block';
+    other.focus();
+    mg.style.display = 'none';
+    formState.model = '';
+  } else if (brand) {
+    formState.brand = brand;
+    other.style.display = 'none';
+    buildModelSelect(brand);
+    mg.style.display = 'block';
+  } else {
+    formState.brand = '';
+    other.style.display = 'none';
+    mg.style.display = 'none';
+    formState.model = '';
+  }
+}
+
+function buildModelSelect(brand) {
+  const sel    = document.getElementById('selectModel');
+  const L      = S[lang];
+  const models = BRANDS[brand] || [];
+  const curr   = formState.model;
+
+  sel.innerHTML = `<option value="">${L.selectModelPlh}</option>` +
+    models.map(m =>
+      `<option value="${m}"${curr === m ? ' selected' : ''}>${m}</option>`
+    ).join('') +
+    `<option value="__other__"${curr === '__other__' ? ' selected' : ''}>${L.otherOption}</option>`;
+}
+
+function onModelChange() {
+  const sel   = document.getElementById('selectModel');
+  const model = sel.value;
+  const other = document.getElementById('inputModelOther');
+
+  if (model === '__other__') {
+    formState.model = '';
+    other.style.display = 'block';
+    other.focus();
+  } else {
+    formState.model = model;
+    other.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//   SERVICE GRID
+// ═══════════════════════════════════════════════════════════════════
+function buildServiceGrid() {
+  const grid = document.getElementById('svcGrid');
+  const L    = S[lang];
+  const unit = lang === 'uz' ? "so'm" : 'сум';
+  const min  = lang === 'uz' ? 'daq' : 'мин';
+
+  let html = Object.entries(SERVICES).map(([key, svc]) => {
+    const name  = svc[lang === 'uz' ? 'uz' : 'ru'];
+    const price = svc.price.toLocaleString('ru-RU');
+    const sel   = formState.serviceKey === key ? ' selected' : '';
+    return `<div class="svc-card${sel}" onclick="selectService('${key}')" id="svc-${key}">
+      <div class="svc-name">${name}</div>
+      <div class="svc-price">${price} ${unit} · ${svc.dur} ${min}</div>
+    </div>`;
+  }).join('');
+
+  // Custom-service card ("Другое")
+  const csel = formState.serviceKey === 'custom' ? ' selected' : '';
+  html += `<div class="svc-card${csel}" onclick="selectService('custom')" id="svc-custom">
+      <div class="svc-name">${L.customSvc}</div>
+      <div class="svc-price">${L.customSvcName}</div>
+    </div>`;
+
+  grid.innerHTML = html;
+
+  // Keep custom placeholders + visibility in sync after a language switch
+  const cn = document.getElementById('inputCustomSvcName');
+  const cp = document.getElementById('inputCustomSvcPrice');
+  if (cn) cn.placeholder = L.customSvcName;
+  if (cp) cp.placeholder = L.customSvcPrice;
+  const wrap = document.getElementById('customSvcWrap');
+  if (wrap) wrap.style.display = formState.serviceKey === 'custom' ? 'block' : 'none';
+}
+
+function selectService(key) {
+  formState.serviceKey = key;
+  document.querySelectorAll('.svc-card').forEach(c => c.classList.remove('selected'));
+  const el = document.getElementById('svc-' + key);
+  if (el) el.classList.add('selected');
+
+  // Show/hide custom inputs
+  const wrap = document.getElementById('customSvcWrap');
+  if (wrap) {
+    if (key === 'custom') {
+      wrap.style.display = 'block';
+      const cn = document.getElementById('inputCustomSvcName');
+      if (cn) setTimeout(() => cn.focus(), 50);
+    } else {
+      wrap.style.display = 'none';
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//   PAYMENT TOGGLES
+// ═══════════════════════════════════════════════════════════════════
+function setPayType(type) {
+  formState.payType = type;
+  document.getElementById('btnCash').classList.toggle('on', type === 'cash');
+  document.getElementById('btnCard').classList.toggle('on', type === 'card');
+}
+
+function setPayStatus(status) {
+  formState.payStatus = status;
+  document.getElementById('btnUnpaid').classList.toggle('on', status === 'not-paid');
+  document.getElementById('btnPaid').classList.toggle('on',   status === 'paid');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//   SUBMIT
+// ═══════════════════════════════════════════════════════════════════
+async function submitCar() {
+  const plate  = formState.plate || normalizePlate(document.getElementById('inputPlate').value);
+  const svcKey = formState.serviceKey;
+
+  if (!plate)  { toast(S[lang].invalidPlate, true); return; }
+  if (!svcKey) { toast(S[lang].noService,    true); return; }
+
+  // Resolve amount + service label (preset OR custom)
+  let amount, serviceToSend, serviceName;
+  if (svcKey === 'custom') {
+    const name  = (document.getElementById('inputCustomSvcName').value || '').trim();
+    const price = parseInt(document.getElementById('inputCustomSvcPrice').value) || 0;
+    if (!name || price <= 0) { toast(S[lang].noCustomSvc, true); return; }
+    amount = price; serviceToSend = 'custom'; serviceName = name;
+  } else {
+    const svc = SERVICES[svcKey];
+    amount = svc.price; serviceToSend = svcKey;
+    serviceName = svc[lang === 'uz' ? 'uz' : 'ru'];
+  }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.querySelector('span').textContent = '⏳ …';
+
+  try {
+    // If this is a brand-new custom service, save it to the shared
+    // catalog first so it appears in the grid (and admin panel) next time.
+    if (svcKey === 'custom') {
+      const { data: svcData, error: svcErr } = await sb.rpc('worker_save_service', {
+        p_telegram_username: tgUser.username,
+        p_name_ru:           serviceName,
+        p_price:             amount,
+      });
+      if (!svcErr && svcData?.key) {
+        serviceToSend = svcData.key;   // store the booking under the new key
+      }
+    }
+
+    const { data, error } = await sb.rpc('worker_add_booking', {
+      p_telegram_username: tgUser.username,
+      p_plate:             plate,
+      p_service:           serviceToSend,
+      p_amount:            amount,
+      p_payment_type:      formState.payType,
+      p_payment_status:    formState.payStatus,
+      p_brand:             formState.brand     || '',
+      p_model:             formState.model     || '',
+      p_owner_type:        formState.ownerType || '',
+      p_service_name:      serviceName         || '',
+      p_wash_time:         formState.washTime  || '',
+    });
+
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+
+    toast(S[lang].savedOk);
+    if (svcKey === 'custom') await loadServices();  // refresh catalog grid
+    resetForm();
+    switchTab('queue');
+
+  } catch(e) {
+    toast(S[lang].saveErr + ': ' + e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.querySelector('span').textContent = S[lang].submitLabel;
+  }
+}
+
+function resetForm() {
+  document.getElementById('inputPlate').value  = '';
+  document.getElementById('inputBrandOther').value = '';
+  document.getElementById('inputModelOther').value = '';
+  document.getElementById('inputCustomSvcName').value  = '';
+  document.getElementById('inputCustomSvcPrice').value = '';
+  document.getElementById('inputWashTime').value       = '';
+  document.getElementById('plateVisualWrap').style.display = 'none';
+  document.getElementById('loyaltyNote').style.display    = 'none';
+  document.getElementById('modelGroup').style.display     = 'none';
+  document.getElementById('inputBrandOther').style.display = 'none';
+  document.getElementById('inputModelOther').style.display = 'none';
+  document.getElementById('customSvcWrap').style.display   = 'none';
+
+  formState = { plate:'', brand:'', model:'', ownerType:'',
+                serviceKey:'', customName:'', customPrice:0,
+                payType:'cash', payStatus:'paid', washTime:'' };
+
+  setPayType('cash');
+  setPayStatus('paid');
+  buildBrandSelect();
+  buildServiceGrid();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//   TOAST
+// ═══════════════════════════════════════════════════════════════════
+let _toastTimer = null;
+function toast(msg, isErr) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = isErr ? '#ef4444' : '#1e293b';
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── Telegram-safe prompt/confirm (native prompt()/confirm() don't work in Mini Apps)
+function askText(title, defaultVal, opts) {
+  opts = opts || {};
+  return new Promise(resolve => {
+    const modal = document.getElementById('askModal');
+    const input = document.getElementById('askInput');
+    document.getElementById('askTitle').textContent = title;
+    input.style.display = 'block';
+    input.type = opts.password ? 'text' : 'text';
+    input.value = defaultVal || '';
+    input.placeholder = opts.placeholder || '';
+    document.getElementById('askCancel').textContent = lang==='uz'?'Bekor':'Отмена';
+    document.getElementById('askOk').textContent = lang==='uz'?'OK':'OK';
+    modal.style.display = 'flex';
+    setTimeout(()=>input.focus(), 50);
+    function done(val){ modal.style.display='none'; cleanup(); resolve(val); }
+    function onOk(){ done(input.value); }
+    function onCancel(){ done(null); }
+    function cleanup(){
+      document.getElementById('askOk').onclick=null;
+      document.getElementById('askCancel').onclick=null;
+    }
+    document.getElementById('askOk').onclick = onOk;
+    document.getElementById('askCancel').onclick = onCancel;
+  });
+}
+function askConfirm(title) {
+  return new Promise(resolve => {
+    const modal = document.getElementById('askModal');
+    document.getElementById('askInput').style.display = 'none';
+    document.getElementById('askTitle').textContent = title;
+    document.getElementById('askCancel').textContent = lang==='uz'?'Bekor':'Отмена';
+    document.getElementById('askOk').textContent = lang==='uz'?'Ha':'Да';
+    modal.style.display = 'flex';
+    function done(val){ modal.style.display='none';
+      document.getElementById('askOk').onclick=null; document.getElementById('askCancel').onclick=null;
+      document.getElementById('askInput').style.display=''; resolve(val); }
+    document.getElementById('askOk').onclick = ()=>done(true);
+    document.getElementById('askCancel').onclick = ()=>done(false);
+  });
+}
+
+// ── Phone call (Mini-App-safe) ──────────────────────────────────────
+// Telegram's in-app browser often blocks tel: links. We try to dial, and
+// also copy the number to the clipboard so it can be pasted into the dialer.
+function callPhone(phone) {
+  const num = String(phone||'').replace(/[^\d+]/g,'');
+  if (!num) return;
+  // copy to clipboard as a reliable fallback
+  try { navigator.clipboard && navigator.clipboard.writeText(num); } catch(e){}
+  try {
+    const a = document.createElement('a');
+    a.href = 'tel:' + num; a.style.display='none';
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch(e) {}
+  try { window.location.href = 'tel:' + num; } catch(e) {}
+  toast((lang==='uz'?'📋 Raqam nusxalandi: ':'📋 Номер скопирован: ') + num);
+}
+</script>
+</body>
+</html>
