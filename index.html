@@ -774,7 +774,7 @@
         body.tg-miniapp .header-content { flex-direction: row; gap: 8px; }
         body.tg-miniapp .logo         { font-size: 18px; letter-spacing: 1px; }
         body.tg-miniapp .container > nav { display: none; }   /* top nav replaced by bottom nav */
-        body.tg-miniapp .container    { padding: 10px 10px 96px; max-width: 100%; }
+        body.tg-miniapp .container    { padding: 10px 10px 120px; max-width: 100%; }
         body.tg-miniapp .content-section { padding: 12px; border-radius: 12px; margin-top: 10px; }
         body.tg-miniapp .section-title { font-size: 16px; }
         body.tg-miniapp .section-header { margin-bottom: 12px; padding-bottom: 10px; }
@@ -868,7 +868,7 @@
             background: var(--bg-card);
             border-top: 1px solid var(--border);
             z-index: 200;
-            padding: 6px 4px env(safe-area-inset-bottom, 6px);
+            padding: 8px 4px calc(env(safe-area-inset-bottom, 10px) + 16px);
             box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
@@ -1433,6 +1433,10 @@
                     <span data-ru="💳 Неоплаченные" data-uz="💳 To'lanmaganlar">💳 Неоплаченные</span>
                 </button>
 
+                <button class="btn btn-secondary" id="bfBtn-completed" onclick="setBookingFilter('completed')">
+                    <span data-ru="✅ Завершённые" data-uz="✅ Tugallangan">✅ Завершённые</span>
+                </button>
+
             </div>
             <!-- Mobile card list (visible only in Telegram Mini App) -->
             <div id="mobileCards"></div>
@@ -1535,6 +1539,19 @@
             <div class="section-header">
                 <h2 class="section-title" data-ru="Учёт платежей" data-uz="To'lovlar hisobi">Учёт платежей</h2>
                 <button class="btn btn-primary" onclick="openModal('paymentModal')"><span data-ru="➕ Записать платёж" data-uz="➕ To'lovni yozish">➕ Записать платёж</span></button>
+            </div>
+
+            <!-- Filters: date range + worker -->
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px;">
+                <label data-ru="С:" data-uz="Dan:">С:</label>
+                <input type="date" id="payFrom" onchange="renderPayments()" style="padding:8px;border-radius:8px;border:1px solid var(--border);">
+                <label data-ru="По:" data-uz="Gacha:">По:</label>
+                <input type="date" id="payTo" onchange="renderPayments()" style="padding:8px;border-radius:8px;border:1px solid var(--border);">
+                <label data-ru="Мойщик:" data-uz="Yuvuvchi:">Мойщик:</label>
+                <select id="payWorker" onchange="renderPayments()" style="padding:8px;border-radius:8px;border:1px solid var(--border);min-width:140px;">
+                    <option value="" data-ru="Все" data-uz="Hammasi">Все</option>
+                </select>
+                <button class="btn btn-secondary" onclick="clearPayFilters()"><span data-ru="✖ Сброс" data-uz="✖ Tozalash">✖ Сброс</span></button>
             </div>
 
             <!-- Mobile cards (Mini App only) -->
@@ -3516,8 +3533,14 @@
                     return hay.includes(term);
                 })
                 .filter(function(b) {
+                    var wfS = b.workflow_status || 'queue';
+                    var isCompleted = wfS === 'done' && b.payment_status === 'paid';
+                    if (_bookingFilter === 'completed') {
+                        return isCompleted;   // завершён + оплачен
+                    }
                     if (_bookingFilter === 'today') {
-                        return rowDate(b) === today;
+                        // Очередь сегодня — без завершённых+оплаченных
+                        return rowDate(b) === today && !isCompleted;
                     }
                     if (_bookingFilter === 'upcoming') {
                         // Show bookings whose wash_time is within the next 2 hours (today only)
@@ -3621,6 +3644,12 @@
             updateAppointmentStats(bookings);
         }
 
+        function clearPayFilters() {
+            ['payFrom','payTo'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
+            var w=document.getElementById('payWorker'); if(w) w.value='';
+            renderPayments();
+        }
+
         // ── Render: Payments ──────────────────────────────────────────
         function renderPayments() {
             var payments = DB.load('crm_payments', []);
@@ -3631,8 +3660,32 @@
             var bookingsW = DB.load('crm_bookings', []);
             var washerBy = {};
             bookingsW.forEach(function(b){ washerBy[b.id] = b.washer || b.washed_by || ''; });
+
+            // Populate the worker filter dropdown from known washers
+            var sel = document.getElementById('payWorker');
+            if (sel) {
+                var names = {};
+                Object.keys(washerBy).forEach(function(k){ if (washerBy[k]) names[washerBy[k]] = 1; });
+                var cur = sel.value;
+                sel.innerHTML = '<option value="">' + (L?'Hammasi':'Все') + '</option>' +
+                    Object.keys(names).sort().map(function(n){ return '<option' + (cur===n?' selected':'') + '>' + n + '</option>'; }).join('');
+            }
+
+            // Read filters
+            var fFrom = (document.getElementById('payFrom')||{}).value || '';
+            var fTo   = (document.getElementById('payTo')||{}).value || '';
+            var fWk   = (document.getElementById('payWorker')||{}).value || '';
+
             // payments sorted by date desc; id is the same as booking_id
-            var sorted = payments.slice().sort(function(a, b){ return (b.created_at||'').localeCompare(a.created_at||''); });
+            var sorted = payments.slice()
+                .filter(function(p){
+                    var d = rowDate(p);
+                    if (fFrom && d < fFrom) return false;
+                    if (fTo   && d > fTo)   return false;
+                    if (fWk   && (washerBy[p.booking_id]||'') !== fWk) return false;
+                    return true;
+                })
+                .sort(function(a, b){ return (b.created_at||'').localeCompare(a.created_at||''); });
             tbody.innerHTML = sorted.length
                 ? sorted.map(function(p) {
                     var washer = washerBy[p.booking_id] || '';
@@ -4259,25 +4312,51 @@
                 box.innerHTML = '<div style="text-align:center;padding:50px;color:var(--light-gray);">🎉 ' + (L?"Yangi arizalar yo'q":'Новых заявок нет') + '</div>';
                 return;
             }
+            // count only pending for the badge
+            var pendingCount = _pendingBookings.filter(function(b){ return (b.status||'pending')==='pending'; }).length;
+            if (badge) { badge.textContent = pendingCount; badge.style.display = pendingCount ? 'inline-block' : 'none'; }
+
             box.innerHTML = _pendingBookings.map(function(b){
                 var svcName = svcLabel(b.service, b.service_name);
-                return '<div class="mob-card" style="border-left:4px solid #f59e0b;">' +
+                var st = b.status || 'pending';
+                var stripe = st==='declined' ? '#ef4444' : st==='approved' ? '#10b981' : '#f59e0b';
+                var stBadge = st==='declined'
+                        ? '<span class="badge badge-danger">❌ ' + (L?'Rad etilgan':'Отклонён') + '</span>'
+                    : st==='approved'
+                        ? '<span class="badge badge-success">✅ ' + (L?'Tasdiqlangan':'Подтверждено') + '</span>'
+                        : '<span class="badge badge-warning">⏳ ' + (L?'Kutilmoqda':'Ожидает') + '</span>';
+                var actions = st==='declined'
+                        ? '<button class="btn" style="flex:1;background:#64748b;color:#fff;" onclick="deleteBookingAdmin(\'' + b.id + '\')">🗑️ ' + (L?"O'chirish":'Удалить') + '</button>'
+                    : st==='approved'
+                        ? '<button class="btn" style="flex:1;background:#ef4444;color:#fff;" onclick="declineBooking(\'' + b.id + '\')">❌ ' + (L?'Bekor qilish':'Отменить') + '</button>'
+                    :   '<button class="btn btn-primary" style="flex:1;background:#10b981;" onclick="approveBooking(\'' + b.id + '\')">✅ ' + (L?'Tasdiqlash':'Подтвердить') + '</button>' +
+                        '<button class="btn" style="flex:1;background:#ef4444;color:#fff;" onclick="declineBooking(\'' + b.id + '\')">❌ ' + (L?'Rad etish':'Отклонить') + '</button>';
+                return '<div class="mob-card" style="border-left:4px solid ' + stripe + ';' + (st==='declined'?'opacity:.7;':'') + '">' +
                     '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
-                        '<span style="font-family:monospace;font-weight:800;font-size:18px;">' + (b.plate||'—').replace(' | ',' ') + '</span>' +
-                        '<span class="badge badge-warning">⏳ ' + (L?'Kutilmoqda':'Ожидает') + '</span>' +
+                        '<span style="font-family:monospace;font-weight:800;font-size:18px;">' + (b.plate||'—').replace(' | ',' ') + '</span>' + stBadge +
                     '</div>' +
                     '<div style="margin-top:8px;font-size:14px;color:var(--light-gray);display:flex;flex-direction:column;gap:4px;">' +
                         '<span>📍 <strong style="color:var(--light);">' + (b.branch||'—') + '</strong></span>' +
                         '<span>🧼 ' + svcName + ' · <strong style="color:var(--light);">' + (b.amount||0).toLocaleString() + ' сум</strong></span>' +
                         '<span>🗓️ ' + (b.req_date||'') + ' ' + (b.req_time||'') + '</span>' +
                         (b.phone ? '<span>📞 <a href="tel:' + b.phone + '">' + b.phone + '</a></span>' : '') +
+                        (b.comment ? '<span>💬 ' + b.comment + '</span>' : '') +
+                        (st==='declined' && b.decline_reason ? '<span style="color:#b91c1c;">✖ ' + b.decline_reason + '</span>' : '') +
                     '</div>' +
-                    '<div style="display:flex;gap:8px;margin-top:12px;">' +
-                        '<button class="btn btn-primary" style="flex:1;background:#10b981;" onclick="approveBooking(\'' + b.id + '\')">✅ ' + (L?'Tasdiqlash':'Подтвердить') + '</button>' +
-                        '<button class="btn" style="flex:1;background:#ef4444;color:#fff;" onclick="declineBooking(\'' + b.id + '\')">❌ ' + (L?'Rad etish':'Отклонить') + '</button>' +
-                    '</div>' +
+                    '<div style="display:flex;gap:8px;margin-top:12px;">' + actions + '</div>' +
                 '</div>';
             }).join('');
+        }
+
+        async function deleteBookingAdmin(id) {
+            var L = currentLang === 'uz';
+            if (!(await uiConfirm(L ? "Yozuvni butunlay o'chirasizmi?" : 'Удалить заявку полностью?'))) return;
+            try {
+                var res = await _sb.rpc('delete_booking_row', { p_id: id });
+                if (res.error) throw res.error;
+                showToast(L ? "O'chirildi ✓" : 'Удалено ✓');
+                loadPendingBookings();
+            } catch(e) { showToast((L?'Xato: ':'Ошибка: ')+e.message, true); }
         }
 
         async function approveBooking(id) {
