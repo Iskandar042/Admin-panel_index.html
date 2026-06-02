@@ -4265,6 +4265,9 @@
             var changed  = [];
             var now      = Date.now();
             bookings.forEach(function(b) {
+                // Never auto-advance customer bookings that aren't checked in yet —
+                // they must stay "Подтверждено" in Брони, not jump to "моются".
+                if (b.source === 'customer' && ['pending','approved','declined'].indexOf(b.status||'') >= 0) return;
                 if (b.manual_override) return;
                 if (!b.date || !b.time) return;
                 var startMs = new Date(b.date + 'T' + b.time + ':00').getTime();
@@ -4320,21 +4323,19 @@
 
         function renderApprovals() {
             var L = currentLang === 'uz';
-            var badge = document.getElementById('approvalsBadge');
-            if (badge) {
-                badge.textContent = _pendingBookings.length;
-                badge.style.display = _pendingBookings.length ? 'inline-block' : 'none';
-            }
+            // NEW (pending) count drives both the top-nav and bottom-nav badges
+            var newCount = _pendingBookings.filter(function(b){ return (b.status||'pending')==='pending'; }).length;
+            ['approvalsBadge','tgApprovalsBadge'].forEach(function(bid){
+                var bd = document.getElementById(bid);
+                if (bd) { bd.textContent = newCount; bd.style.display = newCount ? 'inline-block' : 'none'; }
+            });
             var box = document.getElementById('approvalsList');
             if (!box) return;
             if (!_pendingBookings.length) {
                 box.innerHTML = '<div style="text-align:center;padding:50px;color:var(--light-gray);">🎉 ' + (L?"Yangi arizalar yo'q":'Новых заявок нет') + '</div>';
                 return;
             }
-            // count only pending for the badge
-            var pendingCount = _pendingBookings.filter(function(b){ return (b.status||'pending')==='pending'; }).length;
-            if (badge) { badge.textContent = pendingCount; badge.style.display = pendingCount ? 'inline-block' : 'none'; }
-
+            // (badges already set above)
             box.innerHTML = _pendingBookings.map(function(b){
                 var svcName = svcLabel(b.service, b.service_name);
                 var st = b.status || 'pending';
@@ -4965,6 +4966,27 @@
             } catch(e) { console.error('loadServicesFromCloud:', e); }
         }
 
+        // Push the admin's branch list to the Supabase `branches` table so the
+        // customer booking app can show them. Runs once on admin load.
+        async function syncBranchesToCloud() {
+            if (!_sb) return;
+            var token = localStorage.getItem(AUTH_TOKEN_KEY);
+            if (!token) return;
+            var locs = (typeof getLocList === 'function') ? getLocList() : [];
+            for (var i = 0; i < locs.length; i++) {
+                var loc = locs[i];
+                try {
+                    await _sb.rpc('admin_save_branch', {
+                        p_token: token, p_id: loc.id, p_name: loc.name,
+                        p_address: loc.address || '', p_phone: loc.phone || '',
+                        p_work_open: loc.work_open || '09:00', p_work_close: loc.work_close || '21:00',
+                        p_active: (loc.status !== 'closed'), p_sort: i
+                    });
+                } catch(e) { /* keep going */ }
+            }
+            console.log('Branches synced to cloud:', locs.length);
+        }
+
         // ═══════════════════════════════════════════════════════════════
         //   BRANCHES (LOCATIONS) — full CRUD
         // ═══════════════════════════════════════════════════════════════
@@ -5493,6 +5515,7 @@
             sbLoadAll();
             loadStaff();               // staff list + salaries (admin-only)
             loadServicesFromCloud();   // shared catalog (same as worker app)
+            syncBranchesToCloud();     // push branches so the customer app sees them
             loadPendingBookings();     // customer booking requests
             setInterval(function() { autoUpdateWorkflow(); }, 30000);
             setInterval(function() { loadPendingBookings(); }, 20000);  // poll for new bookings
@@ -5853,7 +5876,7 @@
             <span class="tg-nav-icon">🚗</span><span data-ru="Записи" data-uz="Yozuvlar">Записи</span>
         </button>
         <button class="tg-nav-btn" id="tgNav-approvals" onclick="switchTab('approvals')">
-            <span class="tg-nav-icon">🔔</span><span data-ru="Брони" data-uz="Bronlar">Брони</span>
+            <span class="tg-nav-icon" style="position:relative;">🔔<span id="tgApprovalsBadge" style="display:none;position:absolute;top:-4px;right:-10px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:0 5px;">0</span></span><span data-ru="Брони" data-uz="Bronlar">Брони</span>
         </button>
         <button class="tg-nav-btn" id="tgNav-dashboard" onclick="switchTab('dashboard')">
             <span class="tg-nav-icon">📊</span><span data-ru="Панель" data-uz="Panel">Панель</span>
