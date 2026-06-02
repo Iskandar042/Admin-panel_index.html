@@ -1389,21 +1389,21 @@
 
                 </div>
 
-                <!-- STATS -->
+                <!-- STATS (clickable → filter the list below) -->
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:18px;margin-top:30px;">
-                    <div style="background:rgba(255,255,255,0.15);padding:20px;border-radius:16px;">
+                    <div onclick="setBookingFilter('queue')" style="background:rgba(255,255,255,0.15);padding:20px;border-radius:16px;cursor:pointer;">
                         <div style="font-size:14px;opacity:0.85;" data-ru="В очереди" data-uz="Navbatda">В очереди</div>
                         <div id="stat-queue"   style="font-size:34px;font-weight:800;margin-top:8px;">0</div>
                     </div>
-                    <div style="background:rgba(255,255,255,0.15);padding:20px;border-radius:16px;">
+                    <div onclick="setBookingFilter('washing')" style="background:rgba(255,255,255,0.15);padding:20px;border-radius:16px;cursor:pointer;">
                         <div style="font-size:14px;opacity:0.85;" data-ru="Сейчас моются" data-uz="Hozir yuvilmoqda">Сейчас моются</div>
                         <div id="stat-washing" style="font-size:34px;font-weight:800;margin-top:8px;">0</div>
                     </div>
-                    <div style="background:rgba(255,255,255,0.15);padding:20px;border-radius:16px;">
+                    <div onclick="setBookingFilter('done')" style="background:rgba(255,255,255,0.15);padding:20px;border-radius:16px;cursor:pointer;">
                         <div style="font-size:14px;opacity:0.85;" data-ru="Завершено" data-uz="Tugallangan">Завершено</div>
                         <div id="stat-done"    style="font-size:34px;font-weight:800;margin-top:8px;">0</div>
                     </div>
-                    <div style="background:rgba(255,255,255,0.15);padding:20px;border-radius:16px;">
+                    <div onclick="setBookingFilter('unpaid')" style="background:rgba(255,255,255,0.15);padding:20px;border-radius:16px;cursor:pointer;">
                         <div style="font-size:14px;opacity:0.85;" data-ru="Не оплачено" data-uz="To'lanmagan">Не оплачено</div>
                         <div id="stat-unpaid"  style="font-size:34px;font-weight:800;margin-top:8px;">0</div>
                     </div>
@@ -3530,6 +3530,11 @@
                     if (_bookingFilter === 'unpaid') {
                         return b.payment_status !== 'paid';
                     }
+                    // Workflow filters from the clickable stat cards — match the
+                    // stat counts exactly (today + that workflow status)
+                    if (_bookingFilter === 'queue' || _bookingFilter === 'washing' || _bookingFilter === 'done') {
+                        return rowDate(b) === today && (b.workflow_status || 'queue') === _bookingFilter;
+                    }
                     return true; // 'all'
                 })
                 .sort(function(a, b){ return b.created_at.localeCompare(a.created_at); });
@@ -4288,8 +4293,14 @@
 
         async function declineBooking(id) {
             var L = currentLang === 'uz';
-            var reason = prompt(L ? 'Sababi (ixtiyoriy):' : 'Причина отказа (необязательно):', '');
-            if (reason === null) return;   // cancelled
+            var reason = '';
+            if (IS_TG_MINIAPP) {
+                // prompt() is unavailable in Mini Apps — confirm, decline without a typed reason
+                if (!(await uiConfirm(L ? 'Rad etilsinmi?' : 'Отклонить заявку?'))) return;
+            } else {
+                reason = prompt(L ? 'Sababi (ixtiyoriy):' : 'Причина отказа (необязательно):', '');
+                if (reason === null) return;   // cancelled
+            }
             try {
                 var res = await _sb.rpc('set_booking_status', { p_id:id, p_status:'declined', p_reason:reason||'' });
                 if (res.error) throw res.error;
@@ -4329,7 +4340,8 @@
                         '<td>' + (labels[w.role||'worker']||labels.worker) + '</td>' +
                         '<td>' + accessCell(w) + '</td>' +
                         '<td style="white-space:nowrap;">' + toggleBtn(w) +
-                            ' <button class="action-btn" onclick=\'openEditStaff(' + JSON.stringify(w) + ')\'>✏️</button></td>' +
+                            ' <button class="action-btn" onclick=\'openEditStaff(' + JSON.stringify(w) + ')\'>✏️</button>' +
+                            ' <button class="action-btn danger" onclick="deleteStaff(\'' + (w.telegram_username||'') + '\')">🗑️</button></td>' +
                     '</tr>';
                 }).join('') : '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--light-gray);">' + (L?"Ma'lumot yo'q":'Нет сотрудников') + '</td></tr>';
             }
@@ -4343,7 +4355,8 @@
                         '</div>' +
                         '<div style="margin-top:8px;font-size:14px;">' + (labels[w.role||'worker']||labels.worker) + '</div>' +
                         '<div style="display:flex;gap:8px;margin-top:10px;">' + toggleBtn(w) +
-                            '<button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick=\'openEditStaff(' + JSON.stringify(w) + ')\'>✏️</button></div>' +
+                            '<button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick=\'openEditStaff(' + JSON.stringify(w) + ')\'>✏️</button>' +
+                            '<button class="btn" style="padding:6px 12px;font-size:12px;background:#ef4444;color:#fff;" onclick="deleteStaff(\'' + (w.telegram_username||'') + '\')">🗑️</button></div>' +
                     '</div>';
                 }).join('');
             }
@@ -4610,9 +4623,20 @@
             }
         }
 
+        // Telegram-safe confirm (window.confirm doesn't work in Mini Apps)
+        function uiConfirm(msg) {
+            return new Promise(function(resolve){
+                if (IS_TG_MINIAPP && window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.showConfirm) {
+                    try { window.Telegram.WebApp.showConfirm(msg, function(ok){ resolve(!!ok); }); return; }
+                    catch(e) {}
+                }
+                resolve(window.confirm(msg));
+            });
+        }
+
         async function deleteStaff(user) {
             var L = currentLang === 'uz';
-            if (!confirm(L ? "Bu xodimni o'chirasizmi?" : 'Удалить этого сотрудника?')) return;
+            if (!(await uiConfirm(L ? "Bu xodimni o'chirasizmi?" : 'Удалить этого сотрудника?'))) return;
             try {
                 var res = await _sb.rpc('delete_staff', {
                     p_token: localStorage.getItem(AUTH_TOKEN_KEY), p_username: user
@@ -4779,9 +4803,9 @@
             if (saved) cloudSaveService(saved);
         }
 
-        function deleteService(key) {
+        async function deleteService(key) {
             var L = currentLang === 'uz';
-            if (!confirm(L ? "Bu xizmatni o'chirmoqchimisiz?" : 'Удалить эту услугу?')) return;
+            if (!(await uiConfirm(L ? "Bu xizmatni o'chirmoqchimisiz?" : 'Удалить эту услугу?'))) return;
             var svcs = getSvcList().filter(function(s){ return s.key !== key; });
             DB.save('crm_services', svcs);
             renderServices();
@@ -5455,6 +5479,14 @@
                     if (res.data && res.data.authorized) {
                         var name = res.data.name || tgUser.first_name || 'Admin';
                         document.getElementById('adminNameDisplay').textContent = name;
+                        // Mint a real session token so token-gated admin RPCs
+                        // (save_staff, delete_staff, set_salary_paid, …) work.
+                        try {
+                            var sess = await _sb.rpc('admin_session_for_telegram', { p_telegram_username: username });
+                            if (sess.data && sess.data.token) {
+                                localStorage.setItem(AUTH_TOKEN_KEY, sess.data.token);
+                            }
+                        } catch(se) { console.warn('session mint failed:', se); }
                         _hideLoginOverlay();
                         initApp();
                     } else {
