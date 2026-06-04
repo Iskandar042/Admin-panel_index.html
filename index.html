@@ -1234,11 +1234,10 @@
                 </span>
                 </button>
                 <button class="nav-tab" data-tab="approvals" data-ru="🔔 Брони" data-uz="🔔 Bronlar">🔔 Брони <span id="approvalsBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px;">0</span></button>
-                <button class="nav-tab" data-tab="dashboard" data-ru="📊 Панель управления" data-uz="📊 Boshqaruv paneli">📊 Панель управления</button>
-                <button class="nav-tab" data-tab="payments" data-ru="💳 Платежи" data-uz="💳 To'lovlar">💳 Платежи</button>
+                <button class="nav-tab" data-tab="history" data-ru="📜 История" data-uz="📜 Tarix">📜 История</button>
+                <button class="nav-tab" data-tab="dashboard" data-ru="📊 Аналитика" data-uz="📊 Tahlil">📊 Аналитика</button>
                 <button class="nav-tab" data-tab="services" data-ru="🧼 Услуги" data-uz="🧼 Xizmatlar">🧼 Услуги</button>
                 <button class="nav-tab" data-tab="locations" data-ru="📍 Филиалы" data-uz="📍 Filiallar">📍 Филиалы</button>
-                <button class="nav-tab" data-tab="reports" data-ru="📈 Отчёты" data-uz="📈 Hisobotlar">📈 Отчёты</button>
                 <button class="nav-tab" data-tab="staff" data-ru="👷 Сотрудники" data-uz="👷 Xodimlar">👷 Сотрудники</button>
                 <button class="nav-tab" data-tab="roles" data-ru="🔑 Роли" data-uz="🔑 Rollar">🔑 Роли</button>
                 <button class="nav-tab" data-tab="loyalty" data-ru="🎁 Лояльность" data-uz="🎁 Sodiqlik">🎁 Лояльность</button>
@@ -1290,11 +1289,44 @@
             <div id="rolesMobileCards" class="mob-only"></div>
         </div>
 
-        <!-- Dashboard Section -->
+        <!-- История Section (declined customer bookings) -->
+        <div id="history" class="content-section">
+            <div class="section-header">
+                <h2 class="section-title" data-ru="📜 История броней" data-uz="📜 Bronlar tarixi">📜 История броней</h2>
+                <button class="btn btn-secondary" onclick="loadHistory()"><span data-ru="🔄 Обновить" data-uz="🔄 Yangilash">🔄 Обновить</span></button>
+            </div>
+            <p style="color:var(--light-gray);font-size:14px;margin-bottom:16px;" data-ru="Подтверждённые и отменённые заявки на бронь." data-uz="Tasdiqlangan va bekor qilingan bron arizalari.">Подтверждённые и отменённые заявки на бронь.</p>
+            <!-- Filters (same as брони) -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center;">
+                <button id="hf-all"      onclick="setHistFilter('all')"      style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--primary);background:var(--primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">📋 Все</button>
+                <button id="hf-approved" onclick="setHistFilter('approved')" style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:none;font-size:13px;font-weight:600;cursor:pointer;">✅ Подтверждённые</button>
+                <button id="hf-declined" onclick="setHistFilter('declined')" style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:none;font-size:13px;font-weight:600;cursor:pointer;">❌ Отклонённые</button>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center;">
+                <input type="text" id="hfPlate"    placeholder="Номер авто…" oninput="renderHistory()" autocapitalize="characters" autocomplete="off" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;flex:1;min-width:120px;">
+                <input type="date" id="hfDateFrom" onchange="renderHistory()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:13px;">
+                <span style="color:var(--light-gray);">—</span>
+                <input type="date" id="hfDateTo"   onchange="renderHistory()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:13px;">
+                <button onclick="clearHistFilters()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:none;cursor:pointer;font-size:13px;color:var(--light-gray);">✕</button>
+            </div>
+            <div id="historyList"></div>
+        </div>
+
+        <!-- Dashboard / Analytics Section -->
         <div id="dashboard" class="content-section">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-                <h2 class="section-title" style="margin-bottom:0;" data-ru="📊 Дашборд" data-uz="📊 Boshqaruv paneli">📊 Дашборд</h2>
-                <span style="background:#fef3c7;color:#92400e;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;" data-ru="📅 Только сегодня" data-uz="📅 Faqat bugun">📅 Только сегодня</span>
+                <h2 class="section-title" style="margin-bottom:0;" data-ru="📊 Аналитика" data-uz="📊 Tahlil">📊 Аналитика</h2>
+            </div>
+            <!-- Unified period + filters -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;padding:12px 14px;background:var(--bg-main);border-radius:12px;border:1px solid var(--border);">
+                <button class="btn rep-period-btn active" data-period="day"   onclick="setReportPeriod('day')"   data-ru="День"   data-uz="Kun">День</button>
+                <button class="btn rep-period-btn"        data-period="week"  onclick="setReportPeriod('week')"  data-ru="Неделя" data-uz="Hafta">Неделя</button>
+                <button class="btn rep-period-btn"        data-period="month" onclick="setReportPeriod('month')" data-ru="Месяц"  data-uz="Oy">Месяц</button>
+                <span style="color:var(--light-gray);margin-left:4px;" data-ru="или:" data-uz="yoki:">или:</span>
+                <input type="date" id="repFrom" onchange="onRepFromChange()" style="padding:8px;border-radius:8px;border:1px solid var(--border);">
+                <span>—</span>
+                <input type="date" id="repTo"   onchange="setReportPeriod('custom')" style="padding:8px;border-radius:8px;border:1px solid var(--border);">
+                <span id="repRangeLabel" style="margin-left:auto;font-weight:700;color:var(--primary);"></span>
             </div>
             <div class="dashboard">
                 <div class="stat-card">
@@ -1312,33 +1344,43 @@
             </div>
 
             <!-- Live workflow / payment counters (today) -->
+            <!-- Main stats (active records, excluding declined) -->
             <div class="dashboard" style="margin-top:0;">
-                <div class="stat-card" style="border-left:4px solid #f59e0b;">
-                    <div class="stat-label" data-ru="🅿️ В очереди" data-uz="🅿️ Navbatda">🅿️ В очереди</div>
-                    <div class="stat-value" id="dash-queue" style="font-size:30px;">0</div>
-                </div>
-                <div class="stat-card" style="border-left:4px solid #2563eb;">
-                    <div class="stat-label" data-ru="🚿 Моются сейчас" data-uz="🚿 Yuvilmoqda">🚿 Моются сейчас</div>
-                    <div class="stat-value" id="dash-washing" style="font-size:30px;">0</div>
-                </div>
-                <div class="stat-card" style="border-left:4px solid #10b981;">
-                    <div class="stat-label" data-ru="✅ Помыто сегодня" data-uz="✅ Bugun yuvilgan">✅ Помыто сегодня</div>
-                    <div class="stat-value" id="dash-done" style="font-size:30px;">0</div>
-                </div>
-                <div class="stat-card" style="border-left:4px solid #059669;">
-                    <div class="stat-label" data-ru="💳 Оплачено" data-uz="💳 To'langan">💳 Оплачено</div>
-                    <div class="stat-value" id="dash-paid" style="font-size:30px;">0</div>
-                </div>
-                <div class="stat-card" style="border-left:4px solid #ef4444;">
-                    <div class="stat-label" data-ru="⏳ Не оплачено" data-uz="⏳ To'lanmagan">⏳ Не оплачено</div>
-                    <div class="stat-value" id="dash-unpaid" style="font-size:30px;">0</div>
+                <div class="stat-card"><div class="stat-label" data-ru="💰 Выручка" data-uz="💰 Daromad">💰 Выручка</div><div class="stat-value" id="rep-revenue">0</div></div>
+                <div class="stat-card"><div class="stat-label" data-ru="🚗 Машин" data-uz="🚗 Mashinalar">🚗 Машин</div><div class="stat-value" id="rep-came">0</div></div>
+                <div class="stat-card"><div class="stat-label" data-ru="💵 Средний чек" data-uz="💵 O'rtacha chek">💵 Средний чек</div><div class="stat-value" id="rep-avg">0</div></div>
+            </div>
+            <div class="dashboard" style="margin-top:0;">
+                <div class="stat-card" style="border-left:4px solid #f59e0b;"><div class="stat-label">🅿️ <span data-ru="В очереди" data-uz="Navbatda">В очереди</span></div><div class="stat-value" id="dash-queue" style="font-size:28px;">0</div></div>
+                <div class="stat-card" style="border-left:4px solid #2563eb;"><div class="stat-label">🚿 <span data-ru="Моются" data-uz="Yuvilmoqda">Моются</span></div><div class="stat-value" id="dash-washing" style="font-size:28px;">0</div></div>
+                <div class="stat-card" style="border-left:4px solid #10b981;"><div class="stat-label">✅ <span data-ru="Помыто" data-uz="Yuvilgan">Помыто</span></div><div class="stat-value" id="dash-done" style="font-size:28px;">0</div></div>
+                <div class="stat-card" style="border-left:4px solid #059669;"><div class="stat-label">💳 <span data-ru="Оплачено" data-uz="To'langan">Оплачено</span></div><div class="stat-value" id="dash-paid" style="font-size:28px;">0</div></div>
+                <div class="stat-card" style="border-left:4px solid #ef4444;"><div class="stat-label">⏳ <span data-ru="Не оплачено" data-uz="To'lanmagan">Не оплачено</span></div><div class="stat-value" id="dash-unpaid" style="font-size:28px;">0</div></div>
+            </div>
+            <!-- Canceled / declined stats (separate row) -->
+            <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:12px;padding:14px 16px;margin-bottom:16px;">
+                <div style="font-size:13px;font-weight:700;color:#b91c1c;margin-bottom:10px;" data-ru="❌ Отменённые заявки (не включены в выручку выше)" data-uz="❌ Bekor qilingan arizalar (yuqoridagi daromadga kirmaydi)">❌ Отменённые заявки (не включены в выручку выше)</div>
+                <div style="display:flex;flex-wrap:wrap;gap:12px;">
+                    <div><div style="font-size:12px;color:#b91c1c;" data-ru="Отменено" data-uz="Bekor qilingan">Отменено</div><div style="font-size:24px;font-weight:800;color:#b91c1c;" id="dash-declined">0</div></div>
+                    <div><div style="font-size:12px;color:#b91c1c;" data-ru="Сумма (потеряно)" data-uz="Summa (yo'qotilgan)">Сумма (потеряно)</div><div style="font-size:18px;font-weight:700;color:#b91c1c;" id="dash-declined-amt">0</div></div>
                 </div>
             </div>
-
-            <div class="chart-container" style="display:block;min-height:auto;text-align:left;">
-                <h3 style="margin-bottom:14px;font-size:16px;" data-ru="💰 Выручка сегодня (по часам)" data-uz="💰 Bugungi daromad (soatlar)">💰 Выручка сегодня (по часам)</h3>
-                <div style="position:relative;height:240px;"><canvas id="chartTodayHourly"></canvas></div>
+            <!-- Hourly chart -->
+            <div class="chart-container" style="display:block;min-height:auto;text-align:left;margin-bottom:16px;">
+                <h3 style="margin-bottom:14px;font-size:16px;" data-ru="💰 Выручка по часам" data-uz="💰 Soatlar bo'yicha daromad">💰 Выручка по часам</h3>
+                <div style="position:relative;height:220px;"><canvas id="chartTodayHourly"></canvas></div>
                 <div id="todayIncomeChart" style="display:none;"></div>
+            </div>
+            <!-- Per-service breakdown (from reports) -->
+            <div style="background:var(--bg-card);border-radius:12px;border:1px solid var(--border);padding:16px;margin-bottom:16px;">
+                <h3 style="font-size:15px;font-weight:700;margin-bottom:10px;" data-ru="🧼 Разбивка по услугам" data-uz="🧼 Xizmatlar bo'yicha">🧼 Разбивка по услугам</h3>
+                <div id="rep-services"></div>
+            </div>
+            <!-- Pay method breakdown -->
+            <div class="dashboard" style="margin-top:0;margin-bottom:0;">
+                <div class="stat-card"><div class="stat-label" data-ru="💵 Наличные (записи)" data-uz="💵 Naqd (yozuvlar)">💵 Наличные</div><div class="stat-value" id="rep-cash" style="font-size:24px;">0</div></div>
+                <div class="stat-card"><div class="stat-label" data-ru="💳 Карта (записи)" data-uz="💳 Karta (yozuvlar)">💳 Карта</div><div class="stat-value" id="rep-card" style="font-size:24px;">0</div></div>
+                <div class="stat-card"><div class="stat-label" data-ru="👤 Уник. клиентов" data-uz="👤 Yagona mijozlar">👤 Уник. клиентов</div><div class="stat-value" id="rep-customers" style="font-size:24px;">0</div></div>
             </div>
         </div>
 
@@ -1558,7 +1600,7 @@
         </div>
 
         <!-- Payments Section -->
-        <div id="payments" class="content-section">
+        <div id="payments" class="content-section" style="display:none!important;">
             <div class="section-header">
                 <h2 class="section-title" data-ru="Учёт платежей" data-uz="To'lovlar hisobi">Учёт платежей</h2>
                 <button class="btn btn-primary" onclick="openModal('paymentModal')"><span data-ru="➕ Записать платёж" data-uz="➕ To'lovni yozish">➕ Записать платёж</span></button>
@@ -1828,7 +1870,7 @@
         </div>
 
         <!-- Reports Section -->
-        <div id="reports" class="content-section">
+        <div id="reports" class="content-section" style="display:none!important;">
             <div class="section-header">
                 <h2 class="section-title" data-ru="Отчёты и аналитика" data-uz="Hisobotlar va tahlil">Отчёты и аналитика</h2>
             </div>
@@ -2854,6 +2896,10 @@
                     window.Telegram.WebApp.BackButton.hide();
                 }
             }
+            if (tabName === 'reports')   { switchTab('dashboard'); return; }
+            if (tabName === 'payments')  { switchTab('appointments'); return; }
+            if (tabName === 'history')   { renderHistory(); return; }
+            if (tabName === 'dashboard') { updateDashboard(); return; }
             if (typeof renderAll === 'function') renderAll();
         }
 
@@ -3552,8 +3598,13 @@
         // in the 🔔 Брони tab — it must NOT appear in the main Записи or stats
         // until the car actually arrives (status 'arrived') or it's a walk-in.
         function isActiveRecord(b) {
-            return !(b.source === 'customer' &&
-                     ['pending','approved','declined'].indexOf(b.status || '') >= 0);
+            // Pending-only customer bookings live only in Брони, not Записи.
+            // Approved → show in Записи (car is coming). Declined → История only.
+            if (b.source === 'customer') {
+                var st = b.status || 'pending';
+                if (st === 'pending' || st === 'declined') return false;
+            }
+            return true;
         }
 
         // ── Render: Appointments ──────────────────────────────────────
@@ -3850,47 +3901,89 @@
         }
 
         function updateDashboard() {
+            // Dashboard now uses the same reportRange() as the reports section
             var payments = DB.load('crm_payments', []);
-            var loyalty  = DB.load('crm_loyalty', {});
-            var bookings = DB.load('crm_bookings', []).filter(isActiveRecord);
-            var L        = currentLang === 'uz';
-            var today    = todayTash();
+            var allBookings = DB.load('crm_bookings', []).filter(isActiveRecord);
+            var L    = currentLang === 'uz';
+            var unit = L ? " so'm" : ' сум';
+            var rng  = reportRange();
+            function inRange(x) { var d = rowDate(x); return d >= rng.from && d <= rng.to; }
 
-            var todayB   = bookings.filter(function(b){ return rowDate(b) === today; });
+            var rngB   = allBookings.filter(inRange);
+            // Active = non-declined customer bookings + walk-ins
+            var active = rngB.filter(function(b){ return !isDeclined(b); });
+            var canceled = rngB.filter(isDeclined);
 
-            // Revenue today = paid payments dated today
-            var todayRev = payments
-                .filter(function(p){ return rowDate(p) === today && p.payment_status === 'paid'; })
-                .reduce(function(s, p){ return s + (p.amount || 0); }, 0);
+            var washing = active.filter(function(b){ return (b.workflow_status||'queue') === 'washing'; }).length;
+            var done    = active.filter(function(b){ return (b.workflow_status||'queue') === 'done';    }).length;
+            var queue   = active.filter(function(b){ return (b.workflow_status||'queue') === 'queue';   }).length;
+            var paid    = active.filter(function(b){ return b.payment_status === 'paid'; }).length;
+            var unpaid  = active.filter(function(b){ return b.payment_status !== 'paid'; }).length;
 
-            // Workflow counts (today)
-            var washing = todayB.filter(function(b){ return (b.workflow_status||'queue') === 'washing'; }).length;
-            var done    = todayB.filter(function(b){ return (b.workflow_status||'queue') === 'done';    }).length;
-            var queue   = todayB.filter(function(b){ return (b.workflow_status||'queue') === 'queue';   }).length;
-            var paid    = todayB.filter(function(b){ return b.payment_status === 'paid'; }).length;
-            var unpaid  = todayB.length - paid;
+            var revenue = payments.filter(function(p){
+                return inRange(p) && p.payment_status === 'paid' &&
+                       !isDeclinedById(p.booking_id, rngB);
+            }).reduce(function(s,p){ return s + (p.amount||0); }, 0);
 
-            // Active clients = plates with >= 2 visits this calendar month
-            var ym = today.slice(0,7);
-            var visitsByPlate = {};
-            bookings.forEach(function(b){
-                if (rowDate(b).slice(0,7) === ym && b.license_plate) {
-                    visitsByPlate[b.license_plate] = (visitsByPlate[b.license_plate]||0) + 1;
-                }
-            });
-            var activeClients = Object.keys(visitsByPlate).filter(function(p){ return visitsByPlate[p] >= 2; }).length;
+            var paidB = active.filter(function(x){ return x.payment_status==='paid'; });
+            var avg   = paidB.length ? Math.round(paidB.reduce(function(s,x){return s+(x.amount||0);},0)/paidB.length) : 0;
+            var cashN = active.filter(function(x){ return x.payment_status==='paid' && x.payment_type==='cash'; }).length;
+            var cardN = active.filter(function(x){ return x.payment_status==='paid' && x.payment_type==='card'; }).length;
+
+            var plates = {};
+            active.forEach(function(x){ if (x.license_plate) plates[x.license_plate] = 1; });
+
+            // Canceled stats
+            var canceledAmt = canceled.reduce(function(s,b){ return s+(b.amount||0); }, 0);
 
             function set(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
-            set('stat-today-revenue',    todayRev.toLocaleString() + (L ? " so'm" : ' сум'));
-            set('stat-active-customers', activeClients.toLocaleString());
-            set('stat-today-bookings',   todayB.length);
-            set('dash-washing', washing);
-            set('dash-done',    done);
-            set('dash-queue',   queue);
-            set('dash-paid',    paid);
-            set('dash-unpaid',  unpaid);
+            set('dash-washing',  washing);
+            set('dash-done',     done);
+            set('dash-queue',    queue);
+            set('dash-paid',     paid);
+            set('dash-unpaid',   unpaid);
+            set('rep-revenue',   revenue.toLocaleString() + unit);
+            set('rep-came',      active.length);
+            set('rep-avg',       avg.toLocaleString() + unit);
+            set('rep-customers', Object.keys(plates).length);
+            set('rep-cash',      cashN);
+            set('rep-card',      cardN);
+            set('dash-declined', canceled.length);
+            set('dash-declined-amt', canceledAmt.toLocaleString() + unit);
 
-            drawTodayIncomeChart(payments, today, L);
+            // Update range label
+            var rl = document.getElementById('repRangeLabel');
+            if (rl) rl.textContent = rng.from === rng.to ? rng.from : (rng.from + ' → ' + rng.to);
+
+            // Service breakdown
+            var svcMap = {};
+            active.forEach(function(x){
+                var key = x.service || 'custom';
+                var name = svcLabel(key, x.service_label);
+                if (!svcMap[name]) svcMap[name] = { count:0, sum:0 };
+                svcMap[name].count++;
+                if (x.payment_status === 'paid') svcMap[name].sum += (x.amount||0);
+            });
+            var rows = Object.keys(svcMap).sort(function(a,c){ return svcMap[c].count - svcMap[a].count; });
+            var svcBox = document.getElementById('rep-services');
+            if (svcBox) svcBox.innerHTML = rows.length ? rows.map(function(name){
+                var s = svcMap[name];
+                return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">' +
+                    '<span style="font-weight:600;">' + name + '</span>' +
+                    '<span>' + s.count + ' ' + (L?'ta':'шт') + ' · ' + s.sum.toLocaleString() + unit + '</span></div>';
+            }).join('') : '<p style="color:var(--light-gray);padding:10px 0;">—</p>';
+
+            drawTodayIncomeChart(payments, rng.from === rng.to ? rng.from : todayTash(), L);
+        }
+
+        // Helper: is this booking declined/canceled?
+        function isDeclined(b) {
+            return (b.status || '') === 'declined' || (b.workflow_status || '') === 'canceled';
+        }
+        function isDeclinedById(bid, bookingList) {
+            if (!bid) return false;
+            var found = bookingList.find(function(b){ return b.id === bid; });
+            return found ? isDeclined(found) : false;
         }
 
         // ── Today income chart (hourly bars, pure SVG — no external lib) ──
@@ -4360,6 +4453,80 @@
                 _pendingBookings = (!res.error && Array.isArray(res.data)) ? res.data : [];
             } catch(e) { console.warn('loadPendingBookings:', e); _pendingBookings = []; }
             renderApprovals();
+        }
+
+        // ── История (declined/approved customer bookings) ────────────────
+        var _histFilter = 'all';
+        function setHistFilter(f) {
+            _histFilter = f;
+            ['all','approved','declined'].forEach(function(k){
+                var btn = document.getElementById('hf-' + k);
+                if (!btn) return;
+                var on = k === f;
+                btn.style.background  = on ? 'var(--primary)' : 'none';
+                btn.style.color       = on ? '#fff' : '';
+                btn.style.borderColor = on ? 'var(--primary)' : 'var(--border)';
+            });
+            renderHistory();
+        }
+        function clearHistFilters() {
+            var p = document.getElementById('hfPlate');   if (p) p.value = '';
+            var f = document.getElementById('hfDateFrom');if (f) f.value = '';
+            var t = document.getElementById('hfDateTo');  if (t) t.value = '';
+            setHistFilter('all');
+        }
+        function loadHistory() { renderHistory(); }
+        function renderHistory() {
+            var box = document.getElementById('historyList');
+            if (!box) return;
+            var L = currentLang === 'uz';
+            var unit = L ? " so'm" : ' сум';
+            // declined + approved customer bookings (all stored in _pendingBookings)
+            var all = _pendingBookings.filter(function(b){
+                return b.status === 'approved' || b.status === 'declined';
+            });
+            var plateTerm = (document.getElementById('hfPlate') ? document.getElementById('hfPlate').value : '').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
+            var dateFrom  = document.getElementById('hfDateFrom') ? document.getElementById('hfDateFrom').value : '';
+            var dateTo    = document.getElementById('hfDateTo')   ? document.getElementById('hfDateTo').value   : '';
+            var visible = all.filter(function(b){
+                var st = b.status || 'pending';
+                if (_histFilter !== 'all' && st !== _histFilter) return false;
+                if (plateTerm && !(b.plate||'').replace(/[^A-Za-z0-9]/g,'').toUpperCase().includes(plateTerm)) return false;
+                var d = b.req_date || (b.created_at ? b.created_at.slice(0,10) : '');
+                if (dateFrom && d < dateFrom) return false;
+                if (dateTo   && d > dateTo)   return false;
+                return true;
+            });
+            // Sort: approved first, declined after; newest first within each
+            var rank = {approved:0, declined:1};
+            visible.sort(function(a,b){
+                var ra = rank[a.status||'declined']||0, rb = rank[b.status||'declined']||0;
+                if (ra !== rb) return ra - rb;
+                return (b.created_at||'').localeCompare(a.created_at||'');
+            });
+            if (!visible.length) {
+                box.innerHTML = '<div style="text-align:center;padding:50px;color:var(--light-gray);">📭 ' + (L?"Tarix bo'sh":'История пуста') + '</div>';
+                return;
+            }
+            box.innerHTML = visible.map(function(b){
+                var st = b.status || '';
+                var stripe = st==='declined' ? '#ef4444' : '#10b981';
+                var badge  = st==='declined'
+                    ? '<span style="background:#fee2e2;color:#b91c1c;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;">❌ ' + (L?'Rad etilgan':'Отклонён') + '</span>'
+                    : '<span style="background:#d1fae5;color:#065f46;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;">✅ ' + (L?'Tasdiqlangan':'Подтверждён') + '</span>';
+                return '<div class="mob-card" style="border-left:4px solid ' + stripe + ';' + (st==='declined'?'opacity:.8;':'') + '">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">' +
+                        '<span style="font-family:monospace;font-weight:800;font-size:17px;">' + (b.plate||'—').replace(' | ',' ') + '</span>' + badge +
+                    '</div>' +
+                    '<div style="margin-top:8px;font-size:13px;color:var(--light-gray);display:flex;flex-direction:column;gap:3px;">' +
+                        '<span>📍 <strong style="color:var(--light);">' + (b.branch||'—') + '</strong></span>' +
+                        '<span>🧼 ' + svcLabel(b.service, b.service_name) + ' · <strong>' + (b.amount||0).toLocaleString() + unit + '</strong></span>' +
+                        '<span>🗓️ ' + (b.req_date||'') + ' ' + (b.req_time||'') + '</span>' +
+                        (b.phone ? '<span>📞 ' + b.phone + '</span>' : '') +
+                        (st==='declined' && b.decline_reason ? '<span style="color:#b91c1c;">✖ ' + b.decline_reason + '</span>' : '') +
+                    '</div>' +
+                '</div>';
+            }).join('');
         }
 
         var _approvalsFilter = 'all';
@@ -5273,7 +5440,8 @@
             return { from: today, to: today };  // day
         }
 
-        function updateReports() {
+        function updateReports() { /* unified with updateDashboard — no-op */ }
+        function _updateReports_UNUSED() {
             var bookings = DB.load('crm_bookings', []);
             var payments = DB.load('crm_payments', []);
             var L        = currentLang === 'uz';
