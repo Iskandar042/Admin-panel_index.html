@@ -1251,7 +1251,20 @@
                 <h2 class="section-title" data-ru="🔔 Заявки на бронь" data-uz="🔔 Bron arizalari">🔔 Заявки на бронь</h2>
                 <button class="btn btn-secondary" onclick="loadPendingBookings()"><span data-ru="🔄 Обновить" data-uz="🔄 Yangilash">🔄 Обновить</span></button>
             </div>
-            <p style="color:var(--light-gray);font-size:14px;margin-bottom:16px;" data-ru="Новые заявки от клиентов из бота. Подтвердите или отклоните — клиент получит уведомление." data-uz="Botdan kelgan yangi arizalar. Tasdiqlang yoki rad eting — mijoz xabar oladi.">Новые заявки от клиентов из бота. Подтвердите или отклоните — клиент получит уведомление.</p>
+            <!-- Filters -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center;">
+                <button id="abf-all"      onclick="setApprovalsFilter('all')"      style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--primary);background:var(--primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;" data-ru="📋 Все" data-uz="📋 Barchasi">📋 Все</button>
+                <button id="abf-pending"  onclick="setApprovalsFilter('pending')"  style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:none;font-size:13px;font-weight:600;cursor:pointer;" data-ru="⏳ Новые" data-uz="⏳ Yangi">⏳ Новые</button>
+                <button id="abf-approved" onclick="setApprovalsFilter('approved')" style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:none;font-size:13px;font-weight:600;cursor:pointer;" data-ru="✅ Подтверждённые" data-uz="✅ Tasdiqlangan">✅ Подтверждённые</button>
+                <button id="abf-declined" onclick="setApprovalsFilter('declined')" style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:none;font-size:13px;font-weight:600;cursor:pointer;" data-ru="❌ Отклонённые" data-uz="❌ Rad etilgan">❌ Отклонённые</button>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center;">
+                <input type="text"  id="abfPlate"   placeholder="Номер авто…" oninput="renderApprovals()" autocapitalize="characters" autocomplete="off" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;flex:1;min-width:120px;">
+                <input type="date"  id="abfDateFrom" onchange="renderApprovals()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:13px;">
+                <span style="color:var(--light-gray);">—</span>
+                <input type="date"  id="abfDateTo"   onchange="renderApprovals()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:13px;">
+                <button onclick="clearApprovalsFilters()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:none;cursor:pointer;font-size:13px;color:var(--light-gray);">✕</button>
+            </div>
             <div id="approvalsList"></div>
         </div>
 
@@ -1279,6 +1292,10 @@
 
         <!-- Dashboard Section -->
         <div id="dashboard" class="content-section">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+                <h2 class="section-title" style="margin-bottom:0;" data-ru="📊 Дашборд" data-uz="📊 Boshqaruv paneli">📊 Дашборд</h2>
+                <span style="background:#fef3c7;color:#92400e;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;" data-ru="📅 Только сегодня" data-uz="📅 Faqat bugun">📅 Только сегодня</span>
+            </div>
             <div class="dashboard">
                 <div class="stat-card">
                     <div class="stat-label" data-ru="Выручка сегодня" data-uz="Bugungi daromad">Выручка сегодня</div>
@@ -4345,6 +4362,26 @@
             renderApprovals();
         }
 
+        var _approvalsFilter = 'all';
+        function setApprovalsFilter(f) {
+            _approvalsFilter = f;
+            ['all','pending','approved','declined'].forEach(function(k){
+                var btn = document.getElementById('abf-' + k);
+                if (!btn) return;
+                var active = k === f;
+                btn.style.background     = active ? 'var(--primary)' : 'none';
+                btn.style.color          = active ? '#fff' : '';
+                btn.style.borderColor    = active ? 'var(--primary)' : 'var(--border)';
+            });
+            renderApprovals();
+        }
+        function clearApprovalsFilters() {
+            var pf = document.getElementById('abfPlate');   if (pf) pf.value = '';
+            var df = document.getElementById('abfDateFrom');if (df) df.value = '';
+            var dt = document.getElementById('abfDateTo');  if (dt) dt.value = '';
+            setApprovalsFilter('all');
+        }
+
         function renderApprovals() {
             var L = currentLang === 'uz';
             // NEW (pending) count drives both the top-nav and bottom-nav badges
@@ -4355,12 +4392,39 @@
             });
             var box = document.getElementById('approvalsList');
             if (!box) return;
-            if (!_pendingBookings.length) {
-                box.innerHTML = '<div style="text-align:center;padding:50px;color:var(--light-gray);">🎉 ' + (L?"Yangi arizalar yo'q":'Новых заявок нет') + '</div>';
+
+            // ── Filters ──────────────────────────────────────────────────
+            var plateTerm = (document.getElementById('abfPlate') ? document.getElementById('abfPlate').value : '').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
+            var dateFrom  = document.getElementById('abfDateFrom') ? document.getElementById('abfDateFrom').value : '';
+            var dateTo    = document.getElementById('abfDateTo')   ? document.getElementById('abfDateTo').value   : '';
+
+            var visible = _pendingBookings.filter(function(b){
+                var st = b.status || 'pending';
+                if (_approvalsFilter !== 'all' && st !== _approvalsFilter) return false;
+                if (plateTerm && !(b.plate||'').replace(/[^A-Za-z0-9]/g,'').toUpperCase().includes(plateTerm)) return false;
+                var d = b.req_date || (b.created_at ? b.created_at.slice(0,10) : '');
+                if (dateFrom && d < dateFrom) return false;
+                if (dateTo   && d > dateTo)   return false;
+                return true;
+            });
+
+            // ── Sort: pending → approved → declined; newest first within each ─
+            var statusRank = { pending:0, approved:1, declined:2 };
+            visible.sort(function(a,b){
+                var ra = statusRank[a.status||'pending'] || 0;
+                var rb = statusRank[b.status||'pending'] || 0;
+                if (ra !== rb) return ra - rb;
+                // Within same status: newest first (created_at desc)
+                var ca = a.created_at || '';
+                var cb = b.created_at || '';
+                return cb.localeCompare(ca);
+            });
+
+            if (!visible.length) {
+                box.innerHTML = '<div style="text-align:center;padding:50px;color:var(--light-gray);">🎉 ' + (L?"Hech narsa topilmadi":'Ничего не найдено') + '</div>';
                 return;
             }
-            // (badges already set above)
-            box.innerHTML = _pendingBookings.map(function(b){
+            box.innerHTML = visible.map(function(b){
                 var svcName = svcLabel(b.service, b.service_name);
                 var st = b.status || 'pending';
                 var stripe = st==='declined' ? '#ef4444' : st==='approved' ? '#10b981' : '#f59e0b';
