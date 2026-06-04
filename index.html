@@ -970,10 +970,7 @@
         <div class="header-content">
             <div class="logo">🚗 LEADGRAM</div>
             <div class="header-actions">
-                <select class="lang-selector" id="langSelector">
-                    <option value="ru">Русский</option>
-                    <option value="uz">O'zbekcha</option>
-                </select>
+                <button class="lang-selector" id="langToggleBtn" onclick="toggleAdminLang()" style="cursor:pointer;font-weight:700;">RU</button>
                 <select class="location-selector" id="locationSelector">
                     <option value="" selected disabled hidden
                         data-ru="Выберите регион"
@@ -2803,7 +2800,10 @@
         // Language switching function
         function switchLanguage(lang) {
             currentLang = lang;
-            
+            // Toggle button shows the language you'll switch TO next
+            var langBtn = document.getElementById('langToggleBtn');
+            if (langBtn) langBtn.textContent = lang === 'ru' ? 'RU' : 'UZ';
+
             // Update all elements with data-ru and data-uz attributes
             document.querySelectorAll('[data-ru]').forEach(el => {
                 const translation = el.getAttribute('data-' + lang);
@@ -2844,12 +2844,9 @@
             if (typeof renderAll === 'function') renderAll();
         }
 
-        // Language selector
-        const langSelector = document.getElementById('langSelector');
-        if (langSelector) {
-            langSelector.addEventListener('change', (e) => {
-                switchLanguage(e.target.value);
-            });
+        // Language toggle (RU ↔ UZ), same UX as the worker app
+        function toggleAdminLang() {
+            switchLanguage(currentLang === 'ru' ? 'uz' : 'ru');
         }
 
         // Tab switching — shared function used by top nav, bottom nav, and code
@@ -3680,8 +3677,8 @@
                         '<div class="mob-card-row"><span>👷 ' + (b.washer || '—') + '</span></div>' +
                         photoHtml +
                         '<div class="mob-card-actions">' +
-                            '<button class="btn" style="background:var(--gradient-1);color:#fff;" onclick="openEditBooking(\'' + b.id + '\')">✏️ Изменить</button>' +
-                            (py !== 'paid' ? '<button class="btn" style="background:#6366f1;color:#fff;" onclick="markPaid(\'' + b.id + '\')">💳 Оплачено</button>' : '') +
+                            '<button class="btn" style="background:var(--gradient-1);color:#fff;" onclick="openEditBooking(\'' + b.id + '\')">✏️ ' + (L?'Tahrirlash':'Изменить') + '</button>' +
+                            (py !== 'paid' ? '<button class="btn" style="background:#6366f1;color:#fff;" onclick="markPaid(\'' + b.id + '\')">💳 ' + (L?'To\'landi':'Оплачено') + '</button>' : '') +
                             '<button class="btn" style="background:#ef4444;color:#fff;" onclick="deleteBooking(\'' + b.id + '\')">🗑️</button>' +
                         '</div>' +
                     '</div>';
@@ -4844,8 +4841,8 @@
                                 '<div style="font-size:12px;color:var(--light-gray);">@' + (w.telegram_username||'') + '</div>' +
                             '</div>' +
                             (isPaid
-                                ? '<span style="background:#d1fae5;color:#065f46;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;">✅ Выплачено</span>'
-                                : '<button onclick="toggleSalaryPaid(\'' + uname + '\')" style="background:#6366f1;color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">💵 Выплатить</button>') +
+                                ? '<span style="background:#d1fae5;color:#065f46;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;">✅ ' + (L?'To\'langan':'Выплачено') + '</span>'
+                                : '<button onclick="toggleSalaryPaid(\'' + uname + '\')" style="background:#6366f1;color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">💵 ' + (L?'To\'lash':'Выплатить') + '</button>') +
                         '</div>' +
                         '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;">' +
                             '<div style="background:var(--bg-main);border-radius:8px;padding:8px;text-align:center;">' +
@@ -4862,11 +4859,11 @@
                             '</div>' +
                         '</div>' +
                         '<div class="mob-card-actions">' +
-                            '<button class="btn" style="background:var(--bg-main);color:var(--light);border:1px solid var(--border);" onclick=\'openEditStaff(' + JSON.stringify(w) + ')\'>✏️ Изменить</button>' +
+                            '<button class="btn" style="background:var(--bg-main);color:var(--light);border:1px solid var(--border);" onclick=\'openEditStaff(' + JSON.stringify(w) + ')\'>✏️ ' + (L?'Tahrirlash':'Изменить') + '</button>' +
                             '<button class="btn" style="background:#ef4444;color:#fff;" onclick="deleteStaff(\'' + (w.telegram_username||'') + '\')">🗑️</button>' +
                         '</div>' +
                     '</div>';
-                }).join('') : '<div style="text-align:center;padding:30px;color:var(--light-gray);">Нет сотрудников</div>';
+                }).join('') : '<div style="text-align:center;padding:30px;color:var(--light-gray);">' + (L?"Xodimlar yo'q":'Нет сотрудников') + '</div>';
             }
         }
 
@@ -5960,8 +5957,7 @@
 
         // ── Language helper ────────────────────────────────────────────
         function _loginLang() {
-            var sel = document.getElementById('langSelector');
-            return (sel && sel.value === 'uz') ? 'uz' : 'ru';
+            return currentLang === 'uz' ? 'uz' : 'ru';
         }
 
         // ── Telegram Login Widget callback ─────────────────────────────
