@@ -1415,6 +1415,12 @@
                 <input type="text" class="search-input" placeholder="Поиск по номеру, марке или модели..." id="bookingSearch" data-placeholder-ru="Поиск по номеру, марке или модели..." data-placeholder-uz="Raqam, marka yoki model bo'yicha qidirish...">
                 <span class="search-icon">🔍</span>
             </div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+                <input type="date" id="adminDateFrom" onchange="renderBookings()" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:14px;" title="Дата от">
+                <span style="color:var(--light-gray);">—</span>
+                <input type="date" id="adminDateTo"   onchange="renderBookings()" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:14px;" title="Дата до">
+                <button onclick="clearAdminDateFilter()" style="padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:none;cursor:pointer;font-size:13px;color:var(--light-gray);" title="Сбросить даты">✕ Сброс</button>
+            </div>
             <div style="display:flex; gap:15px; margin-bottom:25px; flex-wrap:wrap;" id="bookingFilterBtns">
 
                 <button class="btn btn-secondary" id="bfBtn-all" onclick="setBookingFilter('all')" style="border-color:var(--primary);background:var(--gradient-1);color:white;">
@@ -1816,7 +1822,7 @@
                 <button class="btn rep-period-btn"        data-period="week"  onclick="setReportPeriod('week')"  data-ru="Неделя" data-uz="Hafta">Неделя</button>
                 <button class="btn rep-period-btn"        data-period="month" onclick="setReportPeriod('month')" data-ru="Месяц"  data-uz="Oy">Месяц</button>
                 <span style="margin-left:10px;color:var(--light-gray);" data-ru="или диапазон:" data-uz="yoki oraliq:">или диапазон:</span>
-                <input type="date" id="repFrom" onchange="setReportPeriod('custom')" style="padding:8px;border-radius:8px;border:1px solid var(--border);">
+                <input type="date" id="repFrom" onchange="onRepFromChange()" style="padding:8px;border-radius:8px;border:1px solid var(--border);">
                 <span>—</span>
                 <input type="date" id="repTo"   onchange="setReportPeriod('custom')" style="padding:8px;border-radius:8px;border:1px solid var(--border);">
                 <span id="repRangeLabel" style="margin-left:auto;font-weight:600;color:var(--primary);"></span>
@@ -3511,6 +3517,14 @@
             renderBookings();
         }
 
+        function clearAdminDateFilter() {
+            var f = document.getElementById('adminDateFrom');
+            var t = document.getElementById('adminDateTo');
+            if (f) f.value = '';
+            if (t) t.value = '';
+            renderBookings();
+        }
+
         // Strip a plate/text down to bare alphanumerics for fuzzy matching.
         // "01 | A 123 AA" → "01A123AA"  |  "01 a 123 aa" → "01A123AA"
         function normPlate(s) {
@@ -3537,6 +3551,9 @@
             var today = todayTash();
             var nowMs = Date.now();
 
+            var adminFrom = (document.getElementById('adminDateFrom') ? document.getElementById('adminDateFrom').value : '') || '';
+            var adminTo   = (document.getElementById('adminDateTo')   ? document.getElementById('adminDateTo').value   : '') || '';
+
             var list = bookings
                 .filter(function(b){
                     if (!term) return true;
@@ -3546,6 +3563,13 @@
                     var hay = [b.car_brand, b.car_model, svcLabel(b.service, b.service_label),
                                b.washer, b.license_plate, b.id].join(' ').toLowerCase();
                     return hay.includes(term);
+                })
+                .filter(function(b) {
+                    if (!adminFrom && !adminTo) return true;
+                    var d = rowDate(b);
+                    if (adminFrom && d < adminFrom) return false;
+                    if (adminTo   && d > adminTo)   return false;
+                    return true;
                 })
                 .filter(function(b) {
                     var wfS = b.workflow_status || 'queue';
@@ -5148,6 +5172,19 @@
                 btn.classList.toggle('active', btn.getAttribute('data-period') === p);
             });
             updateReports();
+        }
+
+        function onRepFromChange() {
+            var repFrom = document.getElementById('repFrom');
+            var repTo   = document.getElementById('repTo');
+            if (repFrom && repTo) {
+                // Keep repTo >= repFrom
+                if (repTo.value && repTo.value < repFrom.value) repTo.value = repFrom.value;
+                repTo.min = repFrom.value || '';
+                // Auto-focus repTo so user picks end date next
+                if (!repTo.value) repTo.focus();
+            }
+            setReportPeriod('custom');
         }
 
         // Returns {from, to} as YYYY-MM-DD strings for the selected period
