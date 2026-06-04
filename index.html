@@ -1234,7 +1234,6 @@
                 </span>
                 </button>
                 <button class="nav-tab" data-tab="approvals" data-ru="🔔 Брони" data-uz="🔔 Bronlar">🔔 Брони <span id="approvalsBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px;">0</span></button>
-                <button class="nav-tab" data-tab="history" data-ru="📜 История" data-uz="📜 Tarix">📜 История</button>
                 <button class="nav-tab" data-tab="dashboard" data-ru="📊 Аналитика" data-uz="📊 Tahlil">📊 Аналитика</button>
                 <button class="nav-tab" data-tab="services" data-ru="🧼 Услуги" data-uz="🧼 Xizmatlar">🧼 Услуги</button>
                 <button class="nav-tab" data-tab="locations" data-ru="📍 Филиалы" data-uz="📍 Filiallar">📍 Филиалы</button>
@@ -1287,29 +1286,6 @@
                 </table>
             </div>
             <div id="rolesMobileCards" class="mob-only"></div>
-        </div>
-
-        <!-- История Section (declined customer bookings) -->
-        <div id="history" class="content-section">
-            <div class="section-header">
-                <h2 class="section-title" data-ru="📜 История броней" data-uz="📜 Bronlar tarixi">📜 История броней</h2>
-                <button class="btn btn-secondary" onclick="loadHistory()"><span data-ru="🔄 Обновить" data-uz="🔄 Yangilash">🔄 Обновить</span></button>
-            </div>
-            <p style="color:var(--light-gray);font-size:14px;margin-bottom:16px;" data-ru="Подтверждённые и отменённые заявки на бронь." data-uz="Tasdiqlangan va bekor qilingan bron arizalari.">Подтверждённые и отменённые заявки на бронь.</p>
-            <!-- Filters (same as брони) -->
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center;">
-                <button id="hf-all"      onclick="setHistFilter('all')"      style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--primary);background:var(--primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">📋 Все</button>
-                <button id="hf-approved" onclick="setHistFilter('approved')" style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:none;font-size:13px;font-weight:600;cursor:pointer;">✅ Подтверждённые</button>
-                <button id="hf-declined" onclick="setHistFilter('declined')" style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:none;font-size:13px;font-weight:600;cursor:pointer;">❌ Отклонённые</button>
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center;">
-                <input type="text" id="hfPlate"    placeholder="Номер авто…" oninput="renderHistory()" autocapitalize="characters" autocomplete="off" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;flex:1;min-width:120px;">
-                <input type="date" id="hfDateFrom" onchange="renderHistory()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:13px;">
-                <span style="color:var(--light-gray);">—</span>
-                <input type="date" id="hfDateTo"   onchange="renderHistory()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:13px;">
-                <button onclick="clearHistFilters()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:none;cursor:pointer;font-size:13px;color:var(--light-gray);">✕</button>
-            </div>
-            <div id="historyList"></div>
         </div>
 
         <!-- Dashboard / Analytics Section -->
@@ -2896,9 +2872,8 @@
                     window.Telegram.WebApp.BackButton.hide();
                 }
             }
-            if (tabName === 'reports')   { switchTab('dashboard'); return; }
+            if (tabName === 'reports' || tabName === 'history') { switchTab('dashboard'); return; }
             if (tabName === 'payments')  { switchTab('appointments'); return; }
-            if (tabName === 'history')   { renderHistory(); return; }
             if (tabName === 'dashboard') { updateDashboard(); return; }
             if (typeof renderAll === 'function') renderAll();
         }
@@ -6146,9 +6121,6 @@
         </button>
         <button class="tg-nav-btn" id="tgNav-approvals" onclick="switchTab('approvals')">
             <span class="tg-nav-icon" style="position:relative;">🔔<span id="tgApprovalsBadge" style="display:none;position:absolute;top:-4px;right:-10px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:0 5px;">0</span></span><span data-ru="Брони" data-uz="Bronlar">Брони</span>
-        </button>
-        <button class="tg-nav-btn" id="tgNav-history" onclick="switchTab('history')">
-            <span class="tg-nav-icon">📜</span><span data-ru="История" data-uz="Tarix">История</span>
         </button>
         <button class="tg-nav-btn" id="tgNav-dashboard" onclick="switchTab('dashboard')">
             <span class="tg-nav-icon">📊</span><span data-ru="Аналитика" data-uz="Tahlil">Аналитика</span>
