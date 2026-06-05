@@ -2488,6 +2488,18 @@
         </div>
     </div>
 
+    <!-- ── Booking detail modal (admin Брони) ───────────────────────── -->
+    <div id="bookingDetailModal" class="modal">
+        <div class="modal-content" style="max-width:480px;">
+            <button class="modal-close" onclick="closeModal('bookingDetailModal')">&times;</button>
+            <h3 class="modal-header" data-ru="🔍 Детали брони" data-uz="🔍 Bron tafsilotlari">🔍 Детали брони</h3>
+            <div id="bookingDetailBody"></div>
+            <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+                <button class="btn btn-secondary" onclick="closeModal('bookingDetailModal')"><span data-ru="Закрыть" data-uz="Yopish">Закрыть</span></button>
+            </div>
+        </div>
+    </div>
+
     <!-- ── Secure Delete Confirmation Modal ─────────────────────────── -->
     <div id="deleteConfirmModal" class="modal">
         <div class="modal-content" style="max-width:440px;text-align:center;">
@@ -4540,6 +4552,18 @@
                 var bd = document.getElementById(bid);
                 if (bd) { bd.textContent = newCount; bd.style.display = newCount ? 'inline-block' : 'none'; }
             });
+            // Stage counts on the filter buttons (📋 Все 12 · ⏳ Новые 3 · …)
+            var cApproved = _pendingBookings.filter(function(b){ return b.status==='approved'; }).length;
+            var cDeclined = _pendingBookings.filter(function(b){ return b.status==='declined'; }).length;
+            (function(){
+                var counts = { 'abf-all':_pendingBookings.length, 'abf-pending':newCount, 'abf-approved':cApproved, 'abf-declined':cDeclined };
+                Object.keys(counts).forEach(function(id){
+                    var btn = document.getElementById(id);
+                    if (!btn) return;
+                    var base = btn.getAttribute('data-' + currentLang) || btn.getAttribute('data-ru') || btn.textContent;
+                    btn.textContent = base + (counts[id] ? ' ' + counts[id] : '');
+                });
+            })();
             var box = document.getElementById('approvalsList');
             if (!box) return;
 
@@ -4590,7 +4614,7 @@
                     :   '<button class="btn btn-primary" style="flex:1;background:#10b981;" onclick="approveBooking(\'' + b.id + '\')">✅ ' + (L?'Tasdiqlash':'Подтвердить') + '</button>' +
                         '<button class="btn" style="flex:1;background:#ef4444;color:#fff;" onclick="declineBooking(\'' + b.id + '\')">❌ ' + (L?'Rad etish':'Отклонить') + '</button>';
                 return '<div class="mob-card" style="border-left:4px solid ' + stripe + ';' + (st==='declined'?'opacity:.7;':'') + '">' +
-                    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;cursor:pointer;" onclick="openBookingDetail(\'' + b.id + '\')">' +
                         '<span style="font-family:monospace;font-weight:800;font-size:18px;">' + (b.plate||'—').replace(' | ',' ') + '</span>' + stBadge +
                     '</div>' +
                     '<div style="margin-top:8px;font-size:14px;color:var(--light-gray);display:flex;flex-direction:column;gap:4px;">' +
@@ -4601,9 +4625,45 @@
                         (b.comment ? '<span>💬 ' + b.comment + '</span>' : '') +
                         (st==='declined' && b.decline_reason ? '<span style="color:#b91c1c;">✖ ' + b.decline_reason + '</span>' : '') +
                     '</div>' +
-                    '<div style="display:flex;gap:8px;margin-top:12px;">' + actions + '</div>' +
+                    '<button class="btn" style="width:100%;margin-top:10px;background:none;border:1px solid var(--border);color:var(--light);" onclick="openBookingDetail(\'' + b.id + '\')">🔍 ' + (L?'Batafsil':'Подробнее') + '</button>' +
+                    '<div style="display:flex;gap:8px;margin-top:8px;">' + actions + '</div>' +
                 '</div>';
             }).join('');
+        }
+
+        // Full-detail modal for a single booking (admin "Брони" tab)
+        function openBookingDetail(id) {
+            var b = _pendingBookings.filter(function(x){ return x.id === id; })[0];
+            if (!b) return;
+            var L = currentLang === 'uz';
+            var st = b.status || 'pending';
+            var stTxt = st==='declined' ? (L?'Rad etilgan':'Отклонён')
+                      : st==='approved' ? (L?'Tasdiqlangan':'Подтверждён')
+                      : (L?'Kutilmoqda':'Ожидает');
+            var unit = L ? " so'm" : ' сум';
+            var wf = b.workflow_status || 'queue';
+            var wfTxt = wf==='done' ? (L?'Tayyor':'Готово')
+                      : wf==='washing' ? (L?'Yuvilmoqda':'Моется')
+                      : (L?'Navbatda':'В очереди');
+            var by = b.decided_by==='worker' ? (L?'Yuvuvchi':'Мойщик')
+                   : b.decided_by==='admin'  ? (L?'Admin':'Администратор') : '';
+            var row = function(ic, label, val){ return val ? '<div style="display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px;"><span style="color:var(--light-gray);">'+ic+' '+label+'</span><strong style="text-align:right;">'+val+'</strong></div>' : ''; };
+            var body =
+                '<div style="font-family:monospace;font-weight:800;font-size:22px;text-align:center;margin-bottom:6px;">' + (b.plate||'—').replace(' | ',' ') + '</div>' +
+                '<div style="text-align:center;margin-bottom:12px;color:var(--light-gray);">' + stTxt + (by?(' · '+by):'') + '</div>' +
+                row('📍', L?'Filial':'Филиал', b.branch) +
+                row('🚙', L?'Avto':'Авто', [b.brand,b.model].filter(Boolean).join(' ')) +
+                row('🧼', L?'Xizmat':'Услуга', svcLabel(b.service, b.service_name)) +
+                row('💰', L?'Summa':'Сумма', (b.amount||0).toLocaleString()+unit) +
+                row('🗓️', L?'Vaqt':'Время', (b.req_date||'')+' '+(b.req_time||'')) +
+                row('🚿', L?'Yuvish':'Мойка', wfTxt) +
+                row('💳', L?'To\'lov':'Оплата', b.payment_status==='paid'?(L?'To\'langan':'Оплачено'):(L?'To\'lanmagan':'Не оплачено')) +
+                row('📞', L?'Telefon':'Телефон', b.phone ? '<a href="tel:'+b.phone+'">'+b.phone+'</a>' : '') +
+                row('💬', L?'Izoh':'Комментарий', b.comment) +
+                (st==='declined' ? row('✖', L?'Sabab':'Причина', b.decline_reason) : '') +
+                row('🕒', L?'Yaratilgan':'Создано', b.created_at ? b.created_at.replace('T',' ').slice(0,16) : '');
+            document.getElementById('bookingDetailBody').innerHTML = body;
+            openModal('bookingDetailModal');
         }
 
         async function deleteBookingAdmin(id) {
