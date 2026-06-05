@@ -4441,6 +4441,20 @@
         // ═══════════════════════════════════════════════════════════════
         var _pendingBookings = [];
 
+        // Bucket helpers — every customer booking is exactly one of new /
+        // confirmed / canceled, so filter counts always sum to "Все".
+        var AB_CANCELED = ['declined','cancelled','canceled'];
+        function abIsNew(b){ return (b.status||'pending')==='pending'; }
+        function abIsCanceled(b){ return AB_CANCELED.indexOf(b.status) !== -1; }
+        function abIsConfirmed(b){ return !abIsNew(b) && !abIsCanceled(b); }
+        // Map a filter key to its predicate
+        function abMatch(key, b){
+            if (key==='pending')  return abIsNew(b);
+            if (key==='approved') return abIsConfirmed(b);
+            if (key==='declined') return abIsCanceled(b);
+            return true; // 'all'
+        }
+
         async function loadPendingBookings() {
             if (!_sb) return;
             try {
@@ -4547,14 +4561,16 @@
         function renderApprovals() {
             var L = currentLang === 'uz';
             // NEW (pending) count drives both the top-nav and bottom-nav badges
-            var newCount = _pendingBookings.filter(function(b){ return (b.status||'pending')==='pending'; }).length;
+            var newCount = _pendingBookings.filter(abIsNew).length;
             ['approvalsBadge','tgApprovalsBadge'].forEach(function(bid){
                 var bd = document.getElementById(bid);
                 if (bd) { bd.textContent = newCount; bd.style.display = newCount ? 'inline-block' : 'none'; }
             });
-            // Stage counts on the filter buttons (📋 Все 12 · ⏳ Новые 3 · …)
-            var cApproved = _pendingBookings.filter(function(b){ return b.status==='approved'; }).length;
-            var cDeclined = _pendingBookings.filter(function(b){ return b.status==='declined'; }).length;
+            // Stage counts on the filter buttons (📋 Все 12 · ⏳ Новые 3 · …).
+            // Confirmed is the catch-all (approved/arrived/…) so the three
+            // buckets always add up to "Все".
+            var cApproved = _pendingBookings.filter(abIsConfirmed).length;
+            var cDeclined = _pendingBookings.filter(abIsCanceled).length;
             (function(){
                 var counts = { 'abf-all':_pendingBookings.length, 'abf-pending':newCount, 'abf-approved':cApproved, 'abf-declined':cDeclined };
                 Object.keys(counts).forEach(function(id){
@@ -4573,8 +4589,7 @@
             var dateTo    = document.getElementById('abfDateTo')   ? document.getElementById('abfDateTo').value   : '';
 
             var visible = _pendingBookings.filter(function(b){
-                var st = b.status || 'pending';
-                if (_approvalsFilter !== 'all' && st !== _approvalsFilter) return false;
+                if (!abMatch(_approvalsFilter, b)) return false;
                 if (plateTerm && !(b.plate||'').replace(/[^A-Za-z0-9]/g,'').toUpperCase().includes(plateTerm)) return false;
                 var d = b.req_date || (b.created_at ? b.created_at.slice(0,10) : '');
                 if (dateFrom && d < dateFrom) return false;
@@ -4601,14 +4616,20 @@
             box.innerHTML = visible.map(function(b){
                 var svcName = svcLabel(b.service, b.service_name);
                 var st = b.status || 'pending';
-                var stripe = st==='declined' ? '#ef4444' : st==='approved' ? '#10b981' : '#f59e0b';
-                var stBadge = st==='declined'
+                var isCanceled = abIsCanceled(b);
+                var isArrived  = st==='arrived';   // confirmed + car already in the queue
+                var stripe = isCanceled ? '#ef4444' : (st==='approved'||isArrived) ? '#10b981' : '#f59e0b';
+                var stBadge = isCanceled
                         ? '<span class="badge badge-danger">❌ ' + (L?'Rad etilgan':'Отклонён') + '</span>'
+                    : isArrived
+                        ? '<span class="badge badge-success">🚗 ' + (L?'Keldi · navbatda':'Прибыл · в очереди') + '</span>'
                     : st==='approved'
                         ? '<span class="badge badge-success">✅ ' + (L?'Tasdiqlangan':'Подтверждено') + '</span>'
                         : '<span class="badge badge-warning">⏳ ' + (L?'Kutilmoqda':'Ожидает') + '</span>';
-                var actions = st==='declined'
+                var actions = isCanceled
                         ? '<button class="btn" style="flex:1;background:#64748b;color:#fff;" onclick="deleteBookingAdmin(\'' + b.id + '\')">🗑️ ' + (L?"O'chirish":'Удалить') + '</button>'
+                    : isArrived
+                        ? ''
                     : st==='approved'
                         ? '<button class="btn" style="flex:1;background:#ef4444;color:#fff;" onclick="declineBooking(\'' + b.id + '\')">❌ ' + (L?'Bekor qilish':'Отменить') + '</button>'
                     :   '<button class="btn btn-primary" style="flex:1;background:#10b981;" onclick="approveBooking(\'' + b.id + '\')">✅ ' + (L?'Tasdiqlash':'Подтвердить') + '</button>' +
