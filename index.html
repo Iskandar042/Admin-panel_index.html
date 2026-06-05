@@ -2472,6 +2472,14 @@
                         <option value="closed" data-ru="Закрыто" data-uz="Yopiq">Закрыто</option>
                     </select>
                 </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label data-ru="Координаты (для карты и «Ближайший филиал»)" data-uz="Koordinatalar (xarita va «Eng yaqin filial» uchun)">Координаты (для карты и «Ближайший филиал»)</label>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <input type="text" id="locLat" inputmode="decimal" placeholder="41.311081 (широта)" style="flex:1;">
+                        <input type="text" id="locLng" inputmode="decimal" placeholder="69.279720 (долгота)" style="flex:1;">
+                    </div>
+                    <div style="font-size:12px;color:var(--light-gray);margin-top:6px;" data-ru="На Яндекс.Картах: правый клик по точке → координаты появятся сверху. Скопируйте широту и долготу." data-uz="Yandex.Xaritada: nuqtaga o'ng tugma → koordinatalar chiqadi. Kenglik va uzunlikni ko'chiring.">На Яндекс.Картах: правый клик по точке → координаты появятся сверху. Скопируйте широту и долготу.</div>
+                </div>
             </div>
             <div style="display:flex;gap:15px;justify-content:flex-end;">
                 <button class="btn btn-secondary" onclick="closeModal('locationModal')"><span data-ru="Отмена" data-uz="Bekor qilish">Отмена</span></button>
@@ -2842,6 +2850,8 @@
             }
             // Re-render dynamic tables with new language
             if (typeof renderAll === 'function') renderAll();
+            // The Брони (approvals) list isn't part of renderAll — re-render it too
+            if (typeof renderApprovals === 'function') renderApprovals();
         }
 
         // Language toggle (RU ↔ UZ), same UX as the worker app
@@ -3875,16 +3885,17 @@
         function updateDashboard() {
             // Dashboard now uses the same reportRange() as the reports section
             var payments = DB.load('crm_payments', []);
-            var allBookings = DB.load('crm_bookings', []).filter(isActiveRecord);
+            var rawBookings = DB.load('crm_bookings', []);   // unfiltered (keeps declined!)
             var L    = currentLang === 'uz';
             var unit = L ? " so'm" : ' сум';
             var rng  = reportRange();
             function inRange(x) { var d = rowDate(x); return d >= rng.from && d <= rng.to; }
 
-            var rngB   = allBookings.filter(inRange);
-            // Active = non-declined customer bookings + walk-ins
-            var active = rngB.filter(function(b){ return !isDeclined(b); });
-            var canceled = rngB.filter(isDeclined);
+            var rngAll = rawBookings.filter(inRange);
+            // Active = approved customer bookings + walk-ins (excludes pending & declined)
+            var active   = rngAll.filter(isActiveRecord).filter(function(b){ return !isDeclined(b); });
+            // Canceled = declined bookings only
+            var canceled = rngAll.filter(isDeclined);
 
             var washing = active.filter(function(b){ return (b.workflow_status||'queue') === 'washing'; }).length;
             var done    = active.filter(function(b){ return (b.workflow_status||'queue') === 'done';    }).length;
@@ -3894,7 +3905,7 @@
 
             var revenue = payments.filter(function(p){
                 return inRange(p) && p.payment_status === 'paid' &&
-                       !isDeclinedById(p.booking_id, rngB);
+                       !isDeclinedById(p.booking_id, rngAll);
             }).reduce(function(s,p){ return s + (p.amount||0); }, 0);
 
             var paidB = active.filter(function(x){ return x.payment_status==='paid'; });
@@ -4609,7 +4620,7 @@
         async function approveBooking(id) {
             var L = currentLang === 'uz';
             try {
-                var res = await _sb.rpc('set_booking_status', { p_id:id, p_status:'approved', p_reason:'' });
+                var res = await _sb.rpc('set_booking_status', { p_id:id, p_status:'approved', p_reason:'', p_by:'admin' });
                 if (res.error) throw res.error;
                 showToast(L ? 'Tasdiqlandi ✓' : 'Подтверждено ✓');
                 loadPendingBookings();
@@ -4628,7 +4639,7 @@
                 if (reason === null) return;   // cancelled
             }
             try {
-                var res = await _sb.rpc('set_booking_status', { p_id:id, p_status:'declined', p_reason:reason||'' });
+                var res = await _sb.rpc('set_booking_status', { p_id:id, p_status:'declined', p_reason:reason||'', p_by:'admin' });
                 if (res.error) throw res.error;
                 showToast(L ? 'Rad etildi' : 'Отклонено');
                 loadPendingBookings();
@@ -5207,7 +5218,8 @@
                         p_token: token, p_id: loc.id, p_name: loc.name,
                         p_address: loc.address || '', p_phone: loc.phone || '',
                         p_work_open: loc.work_open || '09:00', p_work_close: loc.work_close || '21:00',
-                        p_active: (loc.status !== 'closed'), p_sort: i
+                        p_active: (loc.status !== 'closed'), p_sort: i,
+                        p_lat: (loc.lat != null ? loc.lat : null), p_lng: (loc.lng != null ? loc.lng : null)
                     });
                 } catch(e) { /* keep going */ }
             }
@@ -5291,6 +5303,8 @@
             document.getElementById('locEditId').value  = '';
             document.getElementById('locName').value    = '';
             document.getElementById('locAddress').value = '';
+            document.getElementById('locLat').value     = '';
+            document.getElementById('locLng').value     = '';
             document.getElementById('locPhone').value   = '';
             document.getElementById('locStatus').value  = 'open';
             document.getElementById('locOpen').value    = '09:00';
@@ -5312,6 +5326,8 @@
             document.getElementById('locStatus').value  = loc.status  || 'open';
             document.getElementById('locOpen').value    = loc.work_open  || '09:00';
             document.getElementById('locClose').value   = loc.work_close || '21:00';
+            document.getElementById('locLat').value     = (loc.lat != null ? loc.lat : '');
+            document.getElementById('locLng').value     = (loc.lng != null ? loc.lng : '');
             var t = document.getElementById('locModalTitle');
             if (t) t.textContent = (currentLang === 'uz' ? 'Filialni tahrirlash' : 'Редактировать филиал') + ': ' + loc.name;
             openModal('locationModal');
@@ -5326,19 +5342,26 @@
             var st   = document.getElementById('locStatus').value;
             var wo   = document.getElementById('locOpen').value  || '09:00';
             var wc   = document.getElementById('locClose').value || '21:00';
+            var latRaw = (document.getElementById('locLat').value || '').trim().replace(',', '.');
+            var lngRaw = (document.getElementById('locLng').value || '').trim().replace(',', '.');
+            var lat = latRaw === '' ? null : parseFloat(latRaw);
+            var lng = lngRaw === '' ? null : parseFloat(lngRaw);
+            if ((latRaw !== '' && isNaN(lat)) || (lngRaw !== '' && isNaN(lng))) {
+                showToast(L ? "Koordinatalar noto'g'ri" : 'Неверные координаты', true); return;
+            }
             if (!name) { showToast(L ? 'Filial nomini kiriting!' : 'Введите название!', true); return; }
             var locs = getLocList();
             var savedId = id;
             if (id) {
                 // edit
                 for (var i = 0; i < locs.length; i++) {
-                    if (locs[i].id === id) { locs[i].name = name; locs[i].address = addr; locs[i].phone = ph; locs[i].status = st; locs[i].work_open = wo; locs[i].work_close = wc; break; }
+                    if (locs[i].id === id) { locs[i].name = name; locs[i].address = addr; locs[i].phone = ph; locs[i].status = st; locs[i].work_open = wo; locs[i].work_close = wc; locs[i].lat = lat; locs[i].lng = lng; break; }
                 }
                 showToast(L ? 'Filial yangilandi ✓' : 'Филиал обновлён ✓');
             } else {
                 // add
                 savedId = 'F' + Date.now().toString().slice(-6);
-                locs.push({ id:savedId, name:name, address:addr, phone:ph, status:st, work_open:wo, work_close:wc });
+                locs.push({ id:savedId, name:name, address:addr, phone:ph, status:st, work_open:wo, work_close:wc, lat:lat, lng:lng });
                 showToast(L ? "Filial qo'shildi ✓" : 'Филиал добавлен ✓');
             }
             DB.save('crm_locations', locs);
@@ -5350,7 +5373,8 @@
                 _sb.rpc('admin_save_branch', {
                     p_token: localStorage.getItem(AUTH_TOKEN_KEY),
                     p_id: savedId, p_name: name, p_address: addr, p_phone: ph,
-                    p_work_open: wo, p_work_close: wc, p_active: (st === 'open'), p_sort: 0
+                    p_work_open: wo, p_work_close: wc, p_active: (st === 'open'), p_sort: 0,
+                    p_lat: lat, p_lng: lng
                 }).then(function(r){ if (r && r.error) console.warn('admin_save_branch:', r.error); },
                         function(e){ console.warn('admin_save_branch:', e); });
             }
