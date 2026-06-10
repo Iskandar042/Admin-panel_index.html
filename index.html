@@ -4458,7 +4458,7 @@
         async function loadPendingBookings() {
             if (!_sb) return;
             try {
-                var res = await _sb.rpc('get_pending_bookings');
+                var res = await _sb.rpc('get_pending_bookings', { p_token: localStorage.getItem(AUTH_TOKEN_KEY) });
                 _pendingBookings = (!res.error && Array.isArray(res.data)) ? res.data : [];
             } catch(e) { console.warn('loadPendingBookings:', e); _pendingBookings = []; }
             renderApprovals();
@@ -4809,7 +4809,7 @@
         async function loadStaff() {
             if (!_sb) return;
             try {
-                var res = await _sb.rpc('get_staff');
+                var res = await _sb.rpc('get_staff', { p_token: localStorage.getItem(AUTH_TOKEN_KEY) });
                 if (!res.error && Array.isArray(res.data)) {
                     _staffCache = res.data;
                     DB.save('crm_staff', _staffCache);
@@ -5265,7 +5265,7 @@
         async function loadServicesFromCloud() {
             if (!_sb) return;
             try {
-                var res = await _sb.rpc('get_services');
+                var res = await _sb.rpc('get_services', { p_token: localStorage.getItem(AUTH_TOKEN_KEY) });
                 if (res.error) throw res.error;
                 var list = res.data || [];
                 if (list.length) {
