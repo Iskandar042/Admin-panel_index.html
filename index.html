@@ -3425,16 +3425,19 @@
             // Load all three tables in parallel
             loadAll: async function() {
                 if (!_sb) throw new Error('no client');
-                var results = await Promise.all([
-                    _sb.from('bookings').select('*').order('created_at', { ascending:false }),
-                    _sb.from('payments').select('*').order('created_at', { ascending:false }),
-                    _sb.from('loyalty').select('*')
-                ]);
+                // Business-scoped read via SECURITY DEFINER RPC (bypasses RLS,
+                // scoped by the admin session token). Returns ONLY this
+                // business's rows, in the same shape as select *.
+                var token = localStorage.getItem(AUTH_TOKEN_KEY) || '';
+                var res = await _sb.rpc('get_admin_data', { p_token: token });
+                if (res.error) throw res.error;
+                var d = res.data || {};
                 return {
-                    bookings:    results[0].data || [],
-                    payments:    results[1].data || [],
-                    loyalty:     results[2].data || [],
-                    errors:      [results[0].error, results[1].error, results[2].error].filter(Boolean)
+                    businessId: d.business_id || null,   // null = invalid/expired token
+                    bookings:   Array.isArray(d.bookings) ? d.bookings : [],
+                    payments:   Array.isArray(d.payments) ? d.payments : [],
+                    loyalty:    Array.isArray(d.loyalty)  ? d.loyalty  : [],
+                    errors:     []
                 };
             }
         };
@@ -3447,13 +3450,14 @@
                 var res = await SB.loadAll();
                 if (res.errors.length) console.warn('Supabase partial errors:', res.errors);
 
-                // Bookings: Supabase columns + localStorage extras
-                if (res.bookings.length > 0) {
+                // Bookings: overwrite with THIS business's set (even if empty)
+                // whenever the token resolved to a real business.
+                if (res.businessId) {
                     DB.save('crm_bookings', res.bookings.map(function(r){ return SB._fromBRow(r); }));
                 }
 
                 // Payments: reconstruct local format from Supabase row
-                if (res.payments.length > 0) {
+                if (res.businessId) {
                     DB.save('crm_payments', res.payments.map(function(r) {
                         var ext = getExtras(r.booking_id);
                         return {
@@ -3472,7 +3476,7 @@
                 }
 
                 // Loyalty: Supabase is source of truth
-                if (res.loyalty.length > 0) {
+                if (res.businessId) {
                     var loy = {};
                     res.loyalty.forEach(function(r){ loy[r.plate] = SB._fromLRow(r); });
                     DB.save('crm_loyalty', loy);
