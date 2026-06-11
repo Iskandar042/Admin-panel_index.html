@@ -3303,7 +3303,8 @@
                     payment_status:  b.payment_status  || 'pending',
                     workflow_status: b.workflow_status || 'queue',
                     wash_time:       b.wash_time      || '',
-                    photo_url:       b.photo_url      || ''
+                    photo_url:       b.photo_url      || '',
+                    business_id:     localStorage.getItem('lg_admin_biz') || 'biz_default'
                 };
             },
 
@@ -3383,10 +3384,11 @@
                 var chk = await _sb.from('payments').select('id').eq('booking_id', p.booking_id).limit(1);
                 if (chk.data && chk.data.length > 0) return;
                 var { error } = await _sb.from('payments').insert({
-                    booking_id: p.booking_id,
-                    plate:      p.license_plate || '',
-                    amount:     p.amount        || 0,
-                    status:     p.payment_status || 'pending'
+                    booking_id:  p.booking_id,
+                    plate:       p.license_plate || '',
+                    amount:      p.amount        || 0,
+                    status:      p.payment_status || 'pending',
+                    business_id: localStorage.getItem('lg_admin_biz') || 'biz_default'
                 });
                 if (error) throw error;
             },
@@ -3414,23 +3416,34 @@
                     points:      lr.points      || 0,
                     total_spent: lr.total_spent || 0,
                     visits:      lr.visits      || 0,
-                    tier:        tier.label
-                }, { onConflict:'plate' });
+                    tier:        tier.label,
+                    business_id: localStorage.getItem('lg_admin_biz') || 'biz_default'
+                }, { onConflict:'business_id,plate' });
                 if (error) throw error;
             },
 
             // Load all three tables in parallel
             loadAll: async function() {
                 if (!_sb) throw new Error('no client');
-                var results = await Promise.all([
-                    _sb.from('bookings').select('*').order('created_at', { ascending:false }),
-                    _sb.from('payments').select('*').order('created_at', { ascending:false }),
-                    _sb.from('loyalty').select('*')
-                ]);
+                // Scope every table to the ACTIVE business so switching
+                // businesses shows ONLY that business's records.
+                var biz = localStorage.getItem('lg_admin_biz') || '';
+                var bq = _sb.from('bookings').select('*').order('created_at', { ascending:false });
+                var pq = _sb.from('payments').select('*').order('created_at', { ascending:false });
+                var lq = _sb.from('loyalty').select('*');
+                if (biz) {
+                    bq = bq.eq('business_id', biz);
+                    pq = pq.eq('business_id', biz);
+                    lq = lq.eq('business_id', biz);
+                }
+                var results = await Promise.all([bq, pq, lq]);
                 return {
                     bookings:    results[0].data || [],
                     payments:    results[1].data || [],
                     loyalty:     results[2].data || [],
+                    bookingsErr: results[0].error,
+                    paymentsErr: results[1].error,
+                    loyaltyErr:  results[2].error,
                     errors:      [results[0].error, results[1].error, results[2].error].filter(Boolean)
                 };
             }
@@ -3444,13 +3457,14 @@
                 var res = await SB.loadAll();
                 if (res.errors.length) console.warn('Supabase partial errors:', res.errors);
 
-                // Bookings: Supabase columns + localStorage extras
-                if (res.bookings.length > 0) {
+                // Bookings: overwrite with THIS business's set (even if empty),
+                // so switching to a business with no records clears the list.
+                if (!res.bookingsErr) {
                     DB.save('crm_bookings', res.bookings.map(function(r){ return SB._fromBRow(r); }));
                 }
 
                 // Payments: reconstruct local format from Supabase row
-                if (res.payments.length > 0) {
+                if (!res.paymentsErr) {
                     DB.save('crm_payments', res.payments.map(function(r) {
                         var ext = getExtras(r.booking_id);
                         return {
@@ -3469,7 +3483,7 @@
                 }
 
                 // Loyalty: Supabase is source of truth
-                if (res.loyalty.length > 0) {
+                if (!res.loyaltyErr) {
                     var loy = {};
                     res.loyalty.forEach(function(r){ loy[r.plate] = SB._fromLRow(r); });
                     DB.save('crm_loyalty', loy);
