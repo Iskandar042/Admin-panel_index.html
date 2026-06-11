@@ -5997,11 +5997,8 @@
                     if (_bizList.length === 1) {
                         await window._enterBusiness(username, _bizList[0].business_id, _bizList[0].name);
                     } else if (_bizList.length > 1) {
-                        // remember the last-used business so reloads don't re-prompt
-                        var _last  = localStorage.getItem('lg_admin_biz');
-                        var _match = _last && _bizList.filter(function(b){ return b.business_id === _last; })[0];
-                        if (_match) { await window._enterBusiness(username, _match.business_id, _match.name); }
-                        else        { window._showBusinessPicker(username, _bizList); }
+                        // Always let the admin choose which business to open.
+                        window._showBusinessPicker(username, _bizList);
                     } else {
                         // Not in admin_users — show username so it's easy to add
                         document.getElementById('loginOverlay').style.display = 'flex';
@@ -6192,6 +6189,16 @@
 
         // ── Logout from Admin Panel ────────────────────────────────────
         async function adminLogout() {
+            // Multi-business admin: "logout" means switch business — show the
+            // picker IN-APP (no Telegram reopen, no cache involved).
+            if (window._adminBizList && window._adminBizList.length > 1 && window._adminUsername) {
+                var _t = localStorage.getItem(AUTH_TOKEN_KEY);
+                if (_t && _sb) { try { await _sb.rpc('logout_admin', { p_token: _t }); } catch(e) {} }
+                localStorage.removeItem(AUTH_TOKEN_KEY);
+                localStorage.removeItem('lg_admin_biz');
+                window._showBusinessPicker(window._adminUsername, window._adminBizList);
+                return;
+            }
             // In Telegram Mini App: native confirm + close the app
             // (auth is by Telegram username, so the only real "logout" is closing it)
             if (IS_TG_MINIAPP && window.Telegram && window.Telegram.WebApp) {
