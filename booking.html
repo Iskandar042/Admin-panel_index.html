@@ -66,7 +66,12 @@ select.input{appearance:none;-webkit-appearance:none}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 .plate-prev{font-family:monospace;font-weight:800;font-size:20px;letter-spacing:1px;background:#fbfcfe;border-radius:10px;padding:10px 14px;text-align:center;margin-top:8px;display:none}
-.muted{font-size:12px;color:var(--hint);margin-top:6px}
+.muted{font-size:12px;color:var(--hint);margin-top:6px;min-height:0;}
+#branchMap{height:220px;border-radius:12px;border:1px solid var(--sep);margin-top:10px;display:none;overflow:hidden}
+#branchMap iframe{width:100%;height:100%;border:none;border-radius:12px;}
+.map-nearest-btn{width:100%;margin-top:8px;background:var(--btn-soft);color:var(--btn);border:1.5px solid var(--btn);border-radius:10px;padding:10px;font-size:14px;font-weight:600;cursor:pointer}
+.gps-card{background:#e7f7ef;border:1px solid #10b981;border-radius:12px;padding:14px;margin-top:10px;display:none}
+.gps-card a{color:#047857;font-weight:700;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px}
 </style>
 </head>
 <body>
@@ -85,6 +90,9 @@ select.input{appearance:none;-webkit-appearance:none}
       <label class="label" id="lBranch">Филиал</label>
       <select class="input" id="selBranch" onchange="onBranchChange()"></select>
       <div class="muted" id="branchHours"></div>
+      <button class="map-nearest-btn" id="nearestBtn" onclick="findNearest()">📍 <span id="nearestBtnLbl">Ближайший филиал</span></button>
+      <div id="branchMap"></div>
+      <div class="gps-card" id="gpsCard"></div>
     </div>
 
     <div class="row">
@@ -102,21 +110,39 @@ select.input{appearance:none;-webkit-appearance:none}
     <div id="queueLoad" style="display:none;background:#eff4ff;border:1px solid #dbe4ff;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13px;"></div>
 
     <div class="group">
-      <label class="label" id="lService">Услуга</label>
-      <div class="svc-grid" id="svcGrid"></div>
+      <label class="label" id="lBrand">Марка автомобиля</label>
+      <select class="input" id="selBrand" onchange="onBookBrandChange()">
+        <option value="">— Марка —</option>
+        <option>Chevrolet</option><option>Kia</option><option>Hyundai</option>
+        <option>BYD</option><option>Chery</option><option>Geely</option>
+        <option>Haval</option><option>Changan</option><option>Toyota</option>
+        <option>Honda</option><option>Nissan</option><option>Mazda</option>
+        <option>Lexus</option><option>BMW</option><option>Mercedes</option>
+        <option>Volkswagen</option><option>Audi</option><option>Porsche</option>
+        <option>Tesla</option><option>Ford</option><option>Renault</option>
+        <option value="__other__">Другое</option>
+      </select>
+      <input class="input" id="inpBrandOther" type="text" placeholder="Введите марку" style="display:none;margin-top:8px;" oninput="selBrandVal=this.value.trim();buildSvc()">
+    </div>
+
+    <div class="group" id="modelGroup" style="display:none;">
+      <label class="label" id="lModel">Модель</label>
+      <select class="input" id="selModel" onchange="onBookModelChange()">
+        <option value="">— Модель —</option>
+      </select>
+      <input class="input" id="inpModelOther" type="text" placeholder="Введите модель" style="display:none;margin-top:8px;" oninput="selModelVal=this.value.trim();buildSvc()">
     </div>
 
     <div class="group">
       <label class="label" id="lPlate">Гос. номер</label>
       <div style="display:flex;gap:8px;">
         <select class="input" id="plateRegion" style="max-width:90px;" onchange="onRegion()">
-          <option value="">01</option>
           <option>01</option><option>10</option><option>20</option><option>25</option>
           <option>30</option><option>40</option><option>50</option><option>60</option>
           <option>70</option><option>75</option><option>80</option><option>85</option>
           <option>90</option><option>95</option>
         </select>
-        <input class="input" id="inpPlate" type="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="A123AA" maxlength="10" oninput="onPlate()" style="flex:1;">
+        <input class="input" id="inpPlate" type="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="A123AA" maxlength="6" oninput="onPlate()" style="flex:1;">
       </div>
       <div class="plate-prev" id="platePrev"></div>
     </div>
@@ -129,6 +155,12 @@ select.input{appearance:none;-webkit-appearance:none}
                style="border:none;background:transparent;outline:none;font-size:16px;padding:12px 8px;flex:1;color:var(--text);"
                placeholder="90 123-45-67" oninput="onPhoneInput()">
       </div>
+    </div>
+
+    <div class="group">
+      <label class="label" id="lService">Услуга</label>
+      <div class="muted" id="svcHint" style="margin-bottom:8px;"></div>
+      <div class="svc-grid" id="svcGrid"></div>
     </div>
 
     <button class="btn" id="submitBtn" onclick="submitBooking()"><span id="submitLbl">✅ Забронировать</span></button>
@@ -157,21 +189,125 @@ const T={
       lPlate:'Гос. номер',lPhone:'Телефон',submitLbl:'✅ Забронировать',navBookLbl:'Запись',navMineLbl:'Мои записи',
       hMine:'📋 Мои записи',pending:'⏳ На рассмотрении',approved:'✅ Подтверждено',declined:'❌ Отклонено',
       pickAll:'Заполните все поля',ok:'✅ Заявка отправлена! Ожидайте подтверждения.',err:'Ошибка',
-      open:'Часы работы',none:'У вас пока нет записей',plateBad:'Неверный формат номера',
+      open:'Часы работы',none:'У вас пока нет записей',plateBad:'Проверьте гос. номер и попробуйте снова (пример: 01 A123AA)',
       qTitle:'🚗 Загрузка на эту дату',qTotal:'Всего в очереди',qCars:'машин',qFree:'✅ Свободно — записывайтесь!',qAtTime:'на ваше время',qBusyAt:'Занятые часы:',
       pastTime:'⛔ Выберите время минимум на 10 минут позже текущего',cancel:'🗑 Отменить',cancelOk:'Запись отменена',cancelLate:'Отменить можно только в течение 10 минут после записи'},
   uz:{hBook:'📅 Yuvishga yozilish',lBranch:'Filial',lDate:'Sana',lTime:'Vaqt',lService:'Xizmat',
       lPlate:'Davlat raqami',lPhone:'Telefon',submitLbl:'✅ Bron qilish',navBookLbl:'Yozilish',navMineLbl:'Yozuvlarim',
       hMine:'📋 Yozuvlarim',pending:'⏳ Ko\'rib chiqilmoqda',approved:'✅ Tasdiqlangan',declined:'❌ Rad etilgan',
       pickAll:'Barcha maydonlarni to\'ldiring',ok:'✅ Ariza yuborildi! Tasdiqlashni kuting.',err:'Xato',
-      open:'Ish vaqti',none:'Hozircha yozuvlaringiz yo\'q',plateBad:'Noto\'g\'ri raqam formati',
+      open:'Ish vaqti',none:'Hozircha yozuvlaringiz yo\'q',plateBad:'Davlat raqamini tekshiring va qayta urinib ko\'ring (masalan: 01 A123AA)',
       qTitle:'🚗 Shu sanadagi band',qTotal:'Navbatda jami',qCars:'mashina',qFree:'✅ Bo\'sh — yoziling!',qAtTime:'sizning vaqtingizda',qBusyAt:'Band soatlar:',
       pastTime:'⛔ Hozirdan kamida 10 daqiqa keyingi vaqtni tanlang',cancel:'🗑 Bekor qilish',cancelOk:'Bekor qilindi',cancelLate:'Faqat 10 daqiqa ichida bekor qilish mumkin'}
 };
 
 let lang='ru', sb=null, tgUser=null, branches=[], services={}, selSvc='', selPlate='';
+let selBrandVal='', selModelVal='';
+
+const BOOK_MODELS={
+  Chevrolet:['Tahoe','Traverse','Trailblazer','Equinox','Malibu','Captiva','Tracker','Onix','Monza','Cobalt','Lacetti','Nexia 3','Nexia','Spark','Matiz','Damas','Labo','Gentra'],
+  Kia:['Sonet','K5','K8','Sportage','Sorento','Seltos','Carnival','Cerato','Rio','Soul','Stinger','Telluride'],
+  Hyundai:['Elantra','Sonata','Tucson','Santa Fe','Accent','Creta','Palisade','Venue','Kona','Ioniq 5','Ioniq 6'],
+  BYD:['Song Plus','Song Pro','Sealion','Chazor','Yuan Up','Seagull','e2','Seal 6','Atto 3','Atto 8','Tang','Han'],
+  Chery:['Tiggo 9','Tiggo 8','Tiggo 8 Pro','Arrizo 8','Tiggo 7','Tiggo 7 Pro','Tiggo 4'],
+  Geely:['Coolray','Tugella','Atlas','Emgrand','Monjaro','Okavango'],
+  Haval:['Jolion','Dargo','F7','H6','H9','M6'],
+  Changan:['CS75','CS55','CS85','Eado','UNI-K','UNI-T'],
+  Toyota:['Camry','Corolla','RAV4','Land Cruiser','Highlander','Prius','Yaris','Fortuner'],
+  Honda:['Accord','Civic','CR-V','Pilot','HR-V','Odyssey'],
+  Nissan:['Altima','Sentra','X-Trail','Patrol','Qashqai','Murano'],
+  Mazda:['Mazda 3','Mazda 6','CX-5','CX-9','CX-30'],
+  Lexus:['ES','RX','LX','NX','IS','GX'],
+  BMW:['3 Series','5 Series','7 Series','X1','X3','X5','X6','X7'],
+  Mercedes:['A-Class','C-Class','E-Class','S-Class','GLC','GLE','GLS'],
+  Volkswagen:['Polo','Jetta','Tiguan','Touareg','Passat','Golf'],
+  Audi:['A3','A4','A6','Q3','Q5','Q7','Q8'],
+  Porsche:['Cayenne','Macan','911','Panamera','Taycan'],
+  Tesla:['Model 3','Model S','Model X','Model Y'],
+  Ford:['Focus','Mondeo','Explorer','Mustang','F-150'],
+  Renault:['Logan','Duster','Arkana','Sandero','Kaptur'],
+};
 
 const DEFAULT_SVC={express:{ru:'Экспресс мойка',uz:'Ekspress yuvish',price:50000},premium:{ru:'Премиум мойка',uz:'Premium yuvish',price:120000}};
+
+// ── Car-luxury pricing ───────────────────────────────────────────────
+// The more expensive / premium the car, the higher the wash fee. Each
+// CAR MODEL belongs to a class (economy / comfort / premium); the class
+// adds a fixed surcharge on top of the base service price.
+//
+// HOW PRICING IS RESOLVED, in order:
+//   1. MODEL_TIER[brand][model]  — explicit per-model class (most precise)
+//   2. BRAND_DEFAULT_TIER[brand] — fallback for any model not listed above
+//   3. DEFAULT_TIER              — unknown / free-typed brand
+//
+// To retune all prices at once, edit TIER_SURCHARGE. To re-class a model,
+// move it between the lists in MODEL_TIER below.
+const TIER_SURCHARGE={economy:0, comfort:40000, premium:90000};
+const TIER_LABEL={
+  economy:{ru:'Эконом', uz:'Ekonom'},
+  comfort:{ru:'Комфорт',uz:'Komfort'},
+  premium:{ru:'Премиум',uz:'Premium'},
+};
+// Unknown / free-typed brand → neutral middle class (worker can adjust on site).
+const DEFAULT_TIER='comfort';
+
+// Default class for any model NOT explicitly listed in MODEL_TIER.
+const BRAND_DEFAULT_TIER={
+  Chevrolet:'economy', Daewoo:'economy', Ravon:'economy',
+  Kia:'comfort', Hyundai:'comfort', BYD:'comfort', Chery:'comfort',
+  Geely:'comfort', Haval:'comfort', Changan:'comfort', Toyota:'comfort',
+  Honda:'comfort', Nissan:'comfort', Mazda:'comfort', Volkswagen:'comfort',
+  Ford:'comfort', Renault:'comfort',
+  Lexus:'premium', BMW:'premium', Mercedes:'premium', Audi:'premium',
+  Porsche:'premium', Tesla:'premium',
+};
+
+// Per-model class. Only models that differ from their brand default need
+// listing — but premium/luxury brands are spelled out for clarity too.
+const MODEL_TIER={
+  Chevrolet:{
+    Tahoe:'premium', Traverse:'premium', Trailblazer:'premium', Equinox:'premium',
+    Malibu:'comfort', Captiva:'comfort', Tracker:'comfort', Onix:'comfort', Monza:'comfort',
+    // economy (brand default): Cobalt, Lacetti, Nexia 3, Nexia, Spark, Matiz, Damas, Labo, Gentra
+  },
+  Kia:{
+    K8:'premium', Sorento:'premium', Carnival:'premium', Stinger:'premium', Telluride:'premium',
+    Rio:'economy',
+  },
+  Hyundai:{
+    'Santa Fe':'premium', Palisade:'premium', 'Ioniq 5':'premium', 'Ioniq 6':'premium',
+    Accent:'economy',
+  },
+  BYD:{
+    'Song Plus':'premium', Sealion:'premium', 'Seal 6':'premium', 'Atto 8':'premium', Tang:'premium', Han:'premium',
+    Seagull:'economy',
+  },
+  Chery:{ 'Tiggo 9':'premium', 'Tiggo 8 Pro':'premium' },
+  Geely:{ Tugella:'premium', Monjaro:'premium' },
+  Haval:{ H9:'premium' },
+  Changan:{ CS85:'premium', 'UNI-K':'premium' },
+  Toyota:{ 'Land Cruiser':'premium', Highlander:'premium', Fortuner:'premium' },
+  Honda:{ Pilot:'premium', Odyssey:'premium' },
+  Nissan:{ Patrol:'premium', Murano:'premium' },
+  Mazda:{ 'CX-9':'premium' },
+  Volkswagen:{ Touareg:'premium', Polo:'economy' },
+  Ford:{ Explorer:'premium', Mustang:'premium', 'F-150':'premium' },
+  Renault:{ Logan:'economy', Sandero:'economy' },
+};
+
+// Returns the car's class key for the current brand+model selection.
+function carTier(){
+  const brand=(selBrandVal||'').trim();
+  if(!brand) return null;
+  const model=(selModelVal||'').trim();
+  const bm=MODEL_TIER[brand];
+  if(bm && model && bm[model]) return bm[model];
+  return BRAND_DEFAULT_TIER[brand] || DEFAULT_TIER;
+}
+function carSurcharge(){
+  const t=carTier();
+  return t ? (TIER_SURCHARGE[t]||0) : 0;
+}
 
 document.addEventListener('DOMContentLoaded',async()=>{
   const tg=window.Telegram?.WebApp;
@@ -182,19 +318,33 @@ document.addEventListener('DOMContentLoaded',async()=>{
   }
   sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
   // default date = today
-  document.getElementById('inpDate').value=new Date().toISOString().slice(0,10);
-  document.getElementById('inpDate').min=new Date().toISOString().slice(0,10);
+  const _today=new Date().toISOString().slice(0,10);
+  document.getElementById('inpDate').value=_today;
+  document.getElementById('inpDate').min=_today;
+  // auto-select time = now + 20 min
+  document.getElementById('inpTime').value=autoBookTime('');
   await loadBranches();
   await loadServices();
   applyLang();
+  restorePrefill();   // pre-fill from the customer's previous booking
+  // Live-refresh "Мои записи" so customers see wash progress in real time
+  setInterval(() => {
+    if (document.getElementById('pageMine')?.classList.contains('active')) loadMine();
+  }, 20000);
 });
 
-function toggleLang(){lang=lang==='ru'?'uz':'ru';document.getElementById('langBtn').textContent=lang.toUpperCase();applyLang();buildSvc();renderBranches();}
+function toggleLang(){lang=lang==='ru'?'uz':'ru';document.getElementById('langBtn').textContent=lang.toUpperCase();applyLang();buildSvc();renderBranches();loadMine();}
 function applyLang(){
   const L=T[lang];
   ['hBook','lBranch','lDate','lTime','lService','lPlate','lPhone','submitLbl','navBookLbl','navMineLbl','hMine'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.textContent=L[id];
   });
+  const nb=document.getElementById('nearestBtnLbl');
+  if(nb) nb.textContent=lang==='uz'?'Eng yaqin filial':'Ближайший филиал';
+  const lb=document.getElementById('lBrand');
+  if(lb) lb.textContent=lang==='uz'?'Avtomobil markasi':'Марка автомобиля';
+  const lm=document.getElementById('lModel');
+  if(lm) lm.textContent=lang==='uz'?'Model':'Модель';
 }
 
 function switchTab(t){
@@ -210,36 +360,63 @@ async function loadBranches(){
 }
 function renderBranches(){
   const sel=document.getElementById('selBranch');
-  sel.innerHTML=branches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('')||'<option value="">—</option>';
+  const allOpt=`<option value="">${lang==='uz'?'🌐 Barcha filiallar':'🌐 Все филиалы'}</option>`;
+  sel.innerHTML=allOpt+branches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
   onBranchChange();
 }
 function onBranchChange(){
-  const b=branches.find(x=>x.id===document.getElementById('selBranch').value);
+  const val=document.getElementById('selBranch').value;
+  const b=branches.find(x=>String(x.id)===String(val));
   const hint=document.getElementById('branchHours');
-  if(b){hint.textContent=`🕒 ${T[lang].open}: ${b.work_open}–${b.work_close}`;
-    const t=document.getElementById('inpTime'); t.min=b.work_open; t.max=b.work_close; if(!t.value)t.value=b.work_open;}
-  else hint.textContent='';
+  if(b){
+    hint.textContent=`🕒 ${T[lang].open}: ${b.work_open}–${b.work_close}`;
+    hint.style.display='';
+    const t=document.getElementById('inpTime'); t.min=b.work_open; t.max=b.work_close;
+    if(!t.value) t.value=autoBookTime(b.work_open);
+    showBranchOnMap(b);
+  } else {
+    hint.textContent=''; hint.style.display='none';
+    document.getElementById('gpsCard').style.display='none';
+    document.getElementById('branchMap').style.display='none';
+  }
   loadQueueLoad();
+  loadServices();   // services are per-business → reload for the chosen branch
 }
 
 // ── Queue load preview (how many cars already booked) ──────────────
 let _load = [];
+// Returns HH:MM that is `addMin` minutes from now, clamped above `workOpen`
+function autoBookTime(workOpen, addMin) {
+  addMin = addMin || 20;
+  const d = new Date(Date.now() + addMin * 60 * 1000);
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  const t20 = hh + ':' + mm;
+  return (workOpen && workOpen > t20) ? workOpen : t20;
+}
+// Returns minimum allowed time (now + 10 min), clamped above workOpen
+function minBookTime(workOpen) {
+  const d = new Date(Date.now() + 10 * 60 * 1000);
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  const t10 = hh + ':' + mm;
+  return (workOpen && workOpen > t10) ? workOpen : t10;
+}
+
 async function loadQueueLoad(){
-  const b=branches.find(x=>x.id===document.getElementById('selBranch').value);
+  const b=branches.find(x=>String(x.id)===String(document.getElementById('selBranch').value));
   const date=document.getElementById('inpDate').value;
-  // If the chosen date is today, don't allow a time earlier than now
   const t=document.getElementById('inpTime');
   const todayStr=new Date().toLocaleDateString('en-CA');
   if(date===todayStr){
-    const soon=new Date(Date.now()+10*60*1000);   // now + 10 min
-    const hh=String(soon.getHours()).padStart(2,'0'); const mm=String(soon.getMinutes()).padStart(2,'0');
-    const cur=hh+':'+mm;
-    const lo=(b&&b.work_open&&b.work_open>cur)?b.work_open:cur;
-    t.min=lo; if(t.value && t.value<lo) t.value=lo;
+    const lo = minBookTime(b && b.work_open);
+    t.min = lo;
+    // If no value or value is below minimum, set to auto (+20 min)
+    if(!t.value || t.value < lo) t.value = autoBookTime(b && b.work_open);
   } else if(b){ t.min=b.work_open; }
   if(!b||!date){ document.getElementById('queueLoad').style.display='none'; return; }
   try{
-    const{data}=await sb.rpc('get_branch_load',{p_branch:b.name,p_date:date});
+    const{data}=await sb.rpc('get_branch_load',{p_branch:b.name,p_date:date,p_branch_id:b.id});
     _load=Array.isArray(data)?data:[];
   }catch(e){ _load=[]; }
   renderQueueLoad();
@@ -266,8 +443,28 @@ function renderQueueLoad(){
     `<div style="margin-top:6px;">${L.qBusyAt}<br>${busy}</div>`;
 }
 
+// Retry wrapper for transient network failures ("TypeError: Load failed")
+async function rpcRetry(fn, tries=4, delayMs=250){
+  let lastErr;
+  for(let i=0;i<tries;i++){
+    try{
+      const res=await fn();
+      if(res && res.error) throw res.error;
+      return res;
+    }catch(e){
+      lastErr=e;
+      const msg=(e&&e.message||'').toLowerCase();
+      const isNetwork=msg.includes('load failed')||msg.includes('failed to fetch')||msg.includes('network')||e.name==='TypeError';
+      if(!isNetwork||i===tries-1) throw e;
+      await new Promise(r=>setTimeout(r,delayMs*(i+1)));
+    }
+  }
+  throw lastErr;
+}
+
 async function loadServices(){
-  try{const{data}=await sb.rpc('get_services');
+  const branchId=document.getElementById('selBranch')?.value||'';
+  try{const{data}=await sb.rpc('get_services',{p_branch_id:branchId});
     if(Array.isArray(data)&&data.length){services={};data.forEach(s=>services[s.key]={ru:s.name_ru,uz:s.name_uz||s.name_ru,price:s.price});}
     else services=Object.assign({},DEFAULT_SVC);
   }catch(e){services=Object.assign({},DEFAULT_SVC);}
@@ -275,10 +472,30 @@ async function loadServices(){
 }
 function buildSvc(){
   const g=document.getElementById('svcGrid');
-  g.innerHTML=Object.entries(services).map(([k,s])=>
-    `<div class="svc${selSvc===k?' on':''}" onclick="pickSvc('${k}')"><div class="n">${s[lang]}</div><div class="p">${(s.price||0).toLocaleString('ru-RU')} сум</div></div>`).join('');
+  const hint=document.getElementById('svcHint');
+  const uz=lang==='uz';
+  const tier=carTier();
+  // Services depend on the car: ask for the brand first.
+  if(!tier){
+    if(hint){ hint.textContent=uz?'⬆️ Avval avtomobil markasini tanlang':'⬆️ Сначала выберите марку автомобиля'; hint.style.display=''; }
+    g.innerHTML='';
+    return;
+  }
+  const sur=carSurcharge();
+  if(hint){
+    const cls=TIER_LABEL[tier]?TIER_LABEL[tier][lang]:tier;
+    hint.innerHTML=(uz?'Avtomobil klassi: ':'Класс авто: ')+`<strong>${cls}</strong>`+
+      (sur>0?` · +${sur.toLocaleString('ru-RU')} ${uz?'so\'m':'сум'}`:'');
+    hint.style.display='';
+  }
+  g.innerHTML=Object.entries(services).map(([k,s])=>{
+    const price=(s.price||0)+sur;
+    return `<div class="svc${selSvc===k?' on':''}" onclick="pickSvc('${k}')"><div class="n">${s[lang]}</div><div class="p">${price.toLocaleString('ru-RU')} ${uz?'so\'m':'сум'}</div></div>`;
+  }).join('');
 }
 function pickSvc(k){selSvc=k;buildSvc();}
+// Final price for a service = base price + car-class surcharge.
+function svcPrice(k){ const s=services[k]; return s ? (s.price||0)+carSurcharge() : 0; }
 
 // Phone: fixed +998, format the 9 local digits as "90 123-45-67"
 function onPhoneInput(){
@@ -297,48 +514,108 @@ function fullPhone(){
   return d.length===9 ? '+998 '+d.slice(0,2)+' '+d.slice(2,5)+'-'+d.slice(5,7)+'-'+d.slice(7) : '';
 }
 function onRegion(){ onPlate(); }
-function onPlate(){
+
+function onBookBrandChange(){
+  const val = document.getElementById('selBrand').value;
+  const otherInp = document.getElementById('inpBrandOther');
+  const modelGrp = document.getElementById('modelGroup');
+  const selModel = document.getElementById('selModel');
+  const otherMdl = document.getElementById('inpModelOther');
+  if(val==='__other__'){
+    selBrandVal=''; otherInp.style.display='block'; otherInp.focus();
+    modelGrp.style.display='none'; selModelVal='';
+  } else if(val){
+    selBrandVal=val; otherInp.style.display='none';
+    const models=BOOK_MODELS[val]||[];
+    selModel.innerHTML=`<option value="">— ${lang==='uz'?'Model':'Модель'} —</option>`+
+      models.map(m=>`<option>${m}</option>`).join('')+
+      `<option value="__other__">${lang==='uz'?'Boshqa':'Другое'}</option>`;
+    otherMdl.style.display='none'; selModelVal='';
+    modelGrp.style.display='block';
+  } else {
+    selBrandVal=''; otherInp.style.display='none';
+    modelGrp.style.display='none'; selModelVal='';
+  }
+  buildSvc();   // service prices depend on the car class
+}
+
+function onBookModelChange(){
+  const val = document.getElementById('selModel').value;
+  const otherMdl = document.getElementById('inpModelOther');
+  if(val==='__other__'){
+    selModelVal=''; otherMdl.style.display='block'; otherMdl.focus();
+  } else {
+    selModelVal=val; otherMdl.style.display='none';
+  }
+  buildSvc();   // a model override may change the class
+}
+// Body field holds only the 6-char body: "A123AA" (individual) or
+// "123AAA" (legal). Region (01, 10, …) always comes from the dropdown.
+function buildFullPlate(){
   const region=(document.getElementById('plateRegion').value||'01');
-  const rest=document.getElementById('inpPlate').value;
-  // if the full plate (incl. region) was typed in the field, use it as-is
-  const raw = normPlate(rest) ? rest : (region+rest);
-  const n=normPlate(raw);
+  const rest=(document.getElementById('inpPlate').value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  return normPlate(rest) || normPlate(region+rest);
+}
+function onPlate(){
+  const n=buildFullPlate();
   const pv=document.getElementById('platePrev');
   if(n){selPlate=n;pv.textContent=n.replace(' | ',' ');pv.style.display='block';}
-  else{selPlate=raw.toUpperCase();pv.style.display='none';}
+  else{selPlate='';pv.style.display='none';}
 }
 function normPlate(raw){
-  let s=raw.toUpperCase().replace(/[|\-]/g,' ').replace(/\s+/g,' ').trim();
-  let m=s.replace(/\s/g,'').match(/^(\d{2})([A-Z])(\d{3})([A-Z]{2})$/); if(m)return `${m[1]} | ${m[2]} ${m[3]} ${m[4]}`;
-  m=s.replace(/\s/g,'').match(/^(\d{2})(\d{3})([A-Z]{3})$/); if(m)return `${m[1]} | ${m[2]} ${m[3]}`;
-  return s.length>=6?s:'';
+  const s=raw.toUpperCase().replace(/[|\-\s]/g,'');
+  let m=s.match(/^(\d{2})([A-Z])(\d{3})([A-Z]{2})$/); if(m)return `${m[1]} | ${m[2]} ${m[3]} ${m[4]}`;
+  m=s.match(/^(\d{2})(\d{3})([A-Z]{3})$/); if(m)return `${m[1]} | ${m[2]} ${m[3]}`;
+  return '';
 }
 
 async function submitBooking(){
   const branchId=document.getElementById('selBranch').value;
-  const branch=branches.find(b=>b.id===branchId);
+  const branch=branches.find(b=>String(b.id)===String(branchId));
   const date=document.getElementById('inpDate').value;
   const time=document.getElementById('inpTime').value;
   const phone=fullPhone();
   const L=T[lang];
-  if(!branchId||!date||!time||!selSvc||!selPlate||!phone){toast(L.pickAll,true);return;}
-  // Must be at least 10 minutes from now
+  const finalBrand0 = selBrandVal || (document.getElementById('inpBrandOther')?.value||'').trim();
+  if(!branchId||!date||!time||!finalBrand0){toast(L.pickAll,true);return;}
+  if(!selSvc){ toast(lang==='uz'?'Xizmatni tanlang':'Выберите услугу',true); return; }
+  if(!phone){toast(L.pickAll,true);return;}
+  // Plate must match an Uzbek format (01A123AA or 01123AAA) — show a clear,
+  // dedicated message instead of the generic "fill all fields".
+  const plateOk=buildFullPlate();
+  if(!plateOk){ toast(L.plateBad,true); document.getElementById('inpPlate').focus(); return; }
+  selPlate=plateOk;
+  // Must be at least 10 minutes from now (floor "now" to the minute so the
+  // auto-selected 18:10 is accepted throughout 18:00:xx)
   const when=new Date(date+'T'+time+':00');
-  if(when.getTime() < Date.now() + 10*60*1000){ toast(L.pastTime,true); return; }
-  if(!normPlate(document.getElementById('inpPlate').value)){toast(L.plateBad,true);return;}
+  if(when.getTime() < Date.now() + 10*60*1000 - 30*1000){ toast(L.pastTime,true); return; }
   const svc=services[selSvc];
+  const amount=svcPrice(selSvc);   // base price + car-class surcharge
+  const finalBrand = finalBrand0;
+  const finalModel = selModelVal || (document.getElementById('inpModelOther')?.value||'').trim();
   const btn=document.getElementById('submitBtn');btn.disabled=true;
   try{
-    const{data,error}=await sb.rpc('create_customer_booking',{
+    const{data,error}=await rpcRetry(()=>sb.rpc('create_customer_booking',{
       p_tg_id:tgUser?.id||0, p_name:[tgUser?.first_name,tgUser?.last_name].filter(Boolean).join(' ')||'Customer',
       p_phone:phone, p_plate:selPlate, p_branch:branch?branch.name:branchId,
-      p_service:selSvc, p_service_name:svc?svc[lang]:selSvc, p_amount:svc?svc.price:0,
-      p_req_date:date, p_req_time:time
-    });
+      p_service:selSvc, p_service_name:svc?svc[lang]:selSvc, p_amount:amount,
+      p_req_date:date, p_req_time:time,
+      p_brand:finalBrand||'', p_model:finalModel||'', p_branch_id:branchId
+    }));
     if(error)throw error; if(data&&data.error)throw new Error(data.error);
+    savePrefill();   // remember these entries for next time
     toast(L.ok);
+    showConfirmGps(branch);
     document.getElementById('inpPlate').value='';selPlate='';document.getElementById('platePrev').style.display='none';
     selSvc='';buildSvc();
+    // reset brand/model
+    document.getElementById('selBrand').value='';
+    document.getElementById('inpBrandOther').style.display='none';
+    document.getElementById('modelGroup').style.display='none';
+    document.getElementById('selModel').innerHTML='';
+    document.getElementById('inpModelOther').style.display='none';
+    selBrandVal='';selModelVal='';
+    buildSvc();   // back to "select a car first" prompt
     setTimeout(()=>switchTab('mine'),900);
   }catch(e){toast(L.err+': '+e.message,true);}
   finally{btn.disabled=false;}
@@ -353,6 +630,52 @@ async function loadMine(){
     box.innerHTML=list.map(renderMine).join('');
   }catch(e){box.innerHTML=`<div class="empty"><p>❌ ${e.message}</p></div>`;}
 }
+// Tashkent (GMT+5) time "HH:MM", timezone-independent
+function _tashHM(s){
+  if(!s) return '';
+  s=String(s).trim().replace(' ','T');
+  if(!/[zZ]$|[+\-]\d{2}:?\d{2}$/.test(s)) s+='Z';
+  const d=new Date(s); if(isNaN(d.getTime())) return '';
+  const t=new Date(d.getTime()+5*3600*1000);
+  return String(t.getUTCHours()).padStart(2,'0')+':'+String(t.getUTCMinutes()).padStart(2,'0');
+}
+
+// Live wash-progress block for the customer
+function washProgress(b){
+  const uz=lang==='uz';
+  const wf=b.workflow_status||'queue';
+  const st=b.status||'pending';
+  // Only show progress once the booking is approved/arrived
+  if(st!=='approved' && b.source==='customer' && st!=='arrived') return '';
+  const start=b.wash_started_at?_tashHM(b.wash_started_at):'';
+  const end=b.wash_finished_at?_tashHM(b.wash_finished_at):'';
+  // estimated end = start + service duration (default 30 min)
+  let est='';
+  if(start && !end && b.wash_started_at){
+    const dur=(services[b.service]?.dur)||30;
+    est=_tashHM(new Date(new Date(b.wash_started_at).getTime()+dur*60000).toISOString());
+  }
+  let title, color, detail='';
+  if(wf==='done'){
+    title=uz?'✅ Tayyor — mashinangiz yuvildi':'✅ Готово — ваша машина вымыта';
+    color='#10b981';
+    detail=end?(uz?`Tugadi: ${end}`:`Завершено в ${end}`):'';
+  } else if(wf==='washing'){
+    title=uz?'🚿 Yuvilmoqda…':'🚿 Моется…';
+    color='#2563eb';
+    detail=(start?(uz?`Boshlandi: ${start}`:`Начато: ${start}`):'')+
+           (est?(uz?` · taxminan ${est} da tayyor`:` · ~готово к ${est}`):'');
+  } else {
+    title=uz?'🅿️ Navbatda':'🅿️ В очереди';
+    color='#f59e0b';
+    detail=uz?'Tez orada boshlanadi':'Скоро начнём';
+  }
+  return `<div style="margin-top:10px;border-left:4px solid ${color};background:#f8fafc;border-radius:10px;padding:10px 12px;">
+    <div style="font-weight:700;font-size:14px;color:${color};">${title}</div>
+    ${detail?`<div style="font-size:12px;color:var(--hint);margin-top:3px;">${detail}</div>`:''}
+  </div>`;
+}
+
 function renderMine(b){
   const L=T[lang];
   const st=b.status||'pending';
@@ -362,7 +685,7 @@ function renderMine(b){
   const svcName=services[b.service]?services[b.service][lang]:(b.service_name||b.service||'');
   // self-cancel allowed within 10 min of creation, and only while still pending/approved
   const created=b.created_at?new Date(b.created_at).getTime():0;
-  const canCancel = (st==='pending'||st==='approved') && created && (Date.now()-created < 10*60*1000);
+  const canCancel = (st==='pending'||st==='approved') && created && (Date.now()-created < 10*60*1000) && (b.workflow_status||'queue')==='queue';
   return `<div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <span style="font-family:monospace;font-weight:800;font-size:17px;">${(b.plate||'').replace(' | ',' ')}</span>${badge}
@@ -373,6 +696,7 @@ function renderMine(b){
       <span>🗓️ ${b.req_date||''} ${b.req_time||''}</span>
       ${st==='declined'&&b.decline_reason?`<span style="color:#b91c1c;">✖ ${b.decline_reason}</span>`:''}
     </div>
+    ${washProgress(b)}
     ${canCancel?`<button class="btn" style="width:100%;margin-top:10px;background:#fff;border:1.5px solid #ef4444;color:#ef4444;" onclick="cancelMine('${b.id}')">${L.cancel}</button>`:''}
   </div>`;
 }
@@ -389,6 +713,173 @@ async function cancelMine(id){
 }
 
 function toast(m,err){const t=document.getElementById('toast');t.textContent=m;t.style.background=err?'#ef4444':'#1e293b';t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2600);}
+
+// ── Map helpers (Yandex Maps — no API key needed for iframe embed) ─────
+function _yandexUrl(lat, lng, zoom, addPin){
+  zoom = zoom || 15;
+  let url = `https://yandex.uz/maps/?ll=${lng},${lat}&z=${zoom}&l=map`;
+  if(addPin) url += `&pt=${lng},${lat},pm2rdm`;
+  return url;
+}
+function _yandexSearchUrl(address){
+  return `https://yandex.uz/maps/?text=${encodeURIComponent(address)}&z=15`;
+}
+
+function showBranchOnMap(b){
+  const mapBox = document.getElementById('branchMap');
+  if(!mapBox) return false;
+  const lat = parseFloat(b.lat||b.latitude||0);
+  const lng = parseFloat(b.lng||b.longitude||b.lon||0);
+  const address = b.address || b.name || '';
+  let src = '';
+  if(lat && lng){
+    // Yandex map-widget — the ONLY Yandex URL that is allowed to embed in an iframe
+    src = `https://yandex.uz/map-widget/v1/?ll=${lng},${lat}&z=16&l=map&pt=${lng},${lat},pm2rdm`;
+  } else if(address){
+    src = `https://yandex.uz/map-widget/v1/?text=${encodeURIComponent(address)}&z=15`;
+  } else {
+    return false;
+  }
+  mapBox.style.display = 'block';
+  mapBox.innerHTML = `<iframe src="${src}" allowfullscreen loading="lazy"></iframe>`;
+  showGpsCard(b, lat, lng, address);
+  return true;
+}
+
+function showGpsCard(b, lat, lng, address){
+  const card = document.getElementById('gpsCard');
+  if(!card) return;
+  const uz = lang==='uz';
+  address = address || b.address || b.name || '';
+  const yLink = (lat && lng)
+    ? `https://yandex.uz/maps/?ll=${lng},${lat}&z=16&pt=${lng},${lat},pm2rdm`
+    : `https://yandex.uz/maps/?text=${encodeURIComponent(address)}`;
+  const gLink = (lat && lng)
+    ? `https://maps.google.com/?q=${lat},${lng}`
+    : `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+  card.style.display = 'block';
+  card.innerHTML =
+    `<div style="font-weight:700;margin-bottom:4px;">📍 ${b.name}</div>`+
+    `<div style="font-size:13px;color:#065f46;margin-bottom:10px;">🕒 ${b.work_open}–${b.work_close}${address?' · '+address:''}</div>`+
+    `<div style="display:flex;gap:8px;flex-wrap:wrap;">`+
+    `<a href="${yLink}" target="_blank" style="flex:1;text-align:center;background:#fff;border:1.5px solid #10b981;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:700;color:#047857;text-decoration:none;">🗺️ Yandex Maps</a>`+
+    `<a href="${gLink}" target="_blank" style="flex:1;text-align:center;background:#fff;border:1.5px solid #10b981;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:700;color:#047857;text-decoration:none;">📍 Google Maps</a>`+
+    `</div>`;
+}
+
+function findNearest(){
+  const uz = lang==='uz';
+  const btn = document.getElementById('nearestBtn');
+  if(btn) btn.disabled = true;
+  if(!navigator.geolocation){
+    toast(uz?'Geolokatsiya qo\'llab-quvvatlanmaydi':'Геолокация не поддерживается', true);
+    if(btn) btn.disabled = false;
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(pos => {
+    const {latitude:ulat, longitude:ulng} = pos.coords;
+    let nearest = null, minDist = Infinity;
+    branches.forEach(b => {
+      const lat = parseFloat(b.lat||b.latitude||0);
+      const lng = parseFloat(b.lng||b.longitude||b.lon||0);
+      if(!lat||!lng) return;
+      const d = Math.hypot(lat-ulat, lng-ulng);
+      if(d < minDist){ minDist=d; nearest=b; }
+    });
+    if(nearest){
+      const sel = document.getElementById('selBranch');
+      if(sel) sel.value = String(nearest.id);
+      onBranchChange();
+      toast((uz?'Eng yaqin filial: ':'Ближайший филиал: ')+nearest.name);
+      // Show Yandex Maps with route from user to nearest branch
+      const nlat = parseFloat(nearest.lat||nearest.latitude||0);
+      const nlng = parseFloat(nearest.lng||nearest.longitude||nearest.lon||0);
+      if(nlat && nlng){
+        // map-widget is the only Yandex URL that embeds; show a route to the branch
+        const routeUrl = `https://yandex.uz/map-widget/v1/?rtext=${ulat},${ulng}~${nlat},${nlng}&rtt=auto`;
+        const mapBox = document.getElementById('branchMap');
+        if(mapBox){
+          mapBox.style.display = 'block';
+          mapBox.innerHTML = `<iframe src="${routeUrl}" allowfullscreen loading="lazy"></iframe>`;
+        }
+        showGpsCard(nearest, nlat, nlng, nearest.address||'');
+      } else {
+        showBranchOnMap(nearest);
+      }
+    } else {
+      // No branch has coordinates yet — center the map on the customer instead,
+      // so they at least see where they are and nearby branches by name search.
+      const mapBox = document.getElementById('branchMap');
+      if(mapBox){
+        mapBox.style.display = 'block';
+        mapBox.innerHTML = `<iframe src="https://yandex.uz/map-widget/v1/?ll=${ulng},${ulat}&z=13&l=map&pt=${ulng},${ulat},pm2bll" allowfullscreen loading="lazy"></iframe>`;
+      }
+      toast(uz?'Filiallarda koordinata yo\'q — joylashuvingiz xaritada'
+             :'У филиалов нет координат — показана ваша геопозиция');
+    }
+    if(btn) btn.disabled = false;
+  }, () => {
+    toast(uz?'Joylashuvga ruxsat berilmadi':'Доступ к геолокации отклонён', true);
+    if(btn) btn.disabled = false;
+  });
+}
+
+function showConfirmGps(branchObj){
+  if(!branchObj) return;
+  showBranchOnMap(branchObj);
+}
+
+// ── Remember the customer's last entries and pre-fill them next time ──
+const PREFILL_KEY='lg_booking_prefill';
+function savePrefill(){
+  try{
+    const data={
+      branchId: document.getElementById('selBranch').value||'',
+      svc:      selSvc||'',
+      region:   document.getElementById('plateRegion').value||'',
+      plate:    document.getElementById('inpPlate').value||'',
+      brand:    selBrandVal||'',
+      model:    selModelVal||'',
+      phone:    document.getElementById('inpPhone').value||''
+    };
+    localStorage.setItem(PREFILL_KEY, JSON.stringify(data));
+  }catch(e){}
+}
+function restorePrefill(){
+  let data; try{ data=JSON.parse(localStorage.getItem(PREFILL_KEY)||'null'); }catch(e){ data=null; }
+  if(!data) return;
+  // Branch (only if it still exists)
+  const selBranch=document.getElementById('selBranch');
+  if(data.branchId && branches.some(b=>String(b.id)===String(data.branchId))){
+    selBranch.value=String(data.branchId);
+    onBranchChange();
+  }
+  // Service
+  if(data.svc && services[data.svc]){ selSvc=data.svc; buildSvc(); }
+  // Plate
+  if(data.region) document.getElementById('plateRegion').value=data.region;
+  if(data.plate){ document.getElementById('inpPlate').value=data.plate; onPlate(); }
+  // Phone
+  if(data.phone){ document.getElementById('inpPhone').value=data.phone; onPhoneInput(); }
+  // Brand + model (match dropdown, else use the "Другое" free-text path)
+  if(data.brand){
+    const selBrand=document.getElementById('selBrand');
+    const known=Array.from(selBrand.options).some(o=>o.value===data.brand);
+    if(known){
+      selBrand.value=data.brand; onBookBrandChange();
+      if(data.model){
+        const selModel=document.getElementById('selModel');
+        const knownM=Array.from(selModel.options).some(o=>o.value===data.model);
+        if(knownM){ selModel.value=data.model; onBookModelChange(); }
+        else{ selModel.value='__other__'; onBookModelChange();
+              document.getElementById('inpModelOther').value=data.model; selModelVal=data.model; }
+      }
+    } else {
+      selBrand.value='__other__'; onBookBrandChange();
+      document.getElementById('inpBrandOther').value=data.brand; selBrandVal=data.brand;
+    }
+  }
+}
 </script>
 </body>
 </html>

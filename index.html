@@ -970,10 +970,7 @@
         <div class="header-content">
             <div class="logo">🚗 LEADGRAM</div>
             <div class="header-actions">
-                <select class="lang-selector" id="langSelector">
-                    <option value="ru">Русский</option>
-                    <option value="uz">O'zbekcha</option>
-                </select>
+                <button class="lang-selector" id="langToggleBtn" onclick="toggleAdminLang()" style="cursor:pointer;font-weight:700;">RU</button>
                 <select class="location-selector" id="locationSelector">
                     <option value="" selected disabled hidden
                         data-ru="Выберите регион"
@@ -1234,11 +1231,9 @@
                 </span>
                 </button>
                 <button class="nav-tab" data-tab="approvals" data-ru="🔔 Брони" data-uz="🔔 Bronlar">🔔 Брони <span id="approvalsBadge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px;">0</span></button>
-                <button class="nav-tab" data-tab="dashboard" data-ru="📊 Панель управления" data-uz="📊 Boshqaruv paneli">📊 Панель управления</button>
-                <button class="nav-tab" data-tab="payments" data-ru="💳 Платежи" data-uz="💳 To'lovlar">💳 Платежи</button>
+                <button class="nav-tab" data-tab="dashboard" data-ru="📊 Аналитика" data-uz="📊 Tahlil">📊 Аналитика</button>
                 <button class="nav-tab" data-tab="services" data-ru="🧼 Услуги" data-uz="🧼 Xizmatlar">🧼 Услуги</button>
                 <button class="nav-tab" data-tab="locations" data-ru="📍 Филиалы" data-uz="📍 Filiallar">📍 Филиалы</button>
-                <button class="nav-tab" data-tab="reports" data-ru="📈 Отчёты" data-uz="📈 Hisobotlar">📈 Отчёты</button>
                 <button class="nav-tab" data-tab="staff" data-ru="👷 Сотрудники" data-uz="👷 Xodimlar">👷 Сотрудники</button>
                 <button class="nav-tab" data-tab="roles" data-ru="🔑 Роли" data-uz="🔑 Rollar">🔑 Роли</button>
                 <button class="nav-tab" data-tab="loyalty" data-ru="🎁 Лояльность" data-uz="🎁 Sodiqlik">🎁 Лояльность</button>
@@ -1251,7 +1246,20 @@
                 <h2 class="section-title" data-ru="🔔 Заявки на бронь" data-uz="🔔 Bron arizalari">🔔 Заявки на бронь</h2>
                 <button class="btn btn-secondary" onclick="loadPendingBookings()"><span data-ru="🔄 Обновить" data-uz="🔄 Yangilash">🔄 Обновить</span></button>
             </div>
-            <p style="color:var(--light-gray);font-size:14px;margin-bottom:16px;" data-ru="Новые заявки от клиентов из бота. Подтвердите или отклоните — клиент получит уведомление." data-uz="Botdan kelgan yangi arizalar. Tasdiqlang yoki rad eting — mijoz xabar oladi.">Новые заявки от клиентов из бота. Подтвердите или отклоните — клиент получит уведомление.</p>
+            <!-- Filters -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center;">
+                <button id="abf-all"      onclick="setApprovalsFilter('all')"      style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--primary);background:var(--primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer;" data-ru="📋 Все" data-uz="📋 Barchasi">📋 Все</button>
+                <button id="abf-pending"  onclick="setApprovalsFilter('pending')"  style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:none;font-size:13px;font-weight:600;cursor:pointer;" data-ru="⏳ Новые" data-uz="⏳ Yangi">⏳ Новые</button>
+                <button id="abf-approved" onclick="setApprovalsFilter('approved')" style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:none;font-size:13px;font-weight:600;cursor:pointer;" data-ru="✅ Подтверждённые" data-uz="✅ Tasdiqlangan">✅ Подтверждённые</button>
+                <button id="abf-declined" onclick="setApprovalsFilter('declined')" style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:none;font-size:13px;font-weight:600;cursor:pointer;" data-ru="❌ Отклонённые" data-uz="❌ Rad etilgan">❌ Отклонённые</button>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center;">
+                <input type="text"  id="abfPlate"   placeholder="Номер авто…" oninput="renderApprovals()" autocapitalize="characters" autocomplete="off" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;flex:1;min-width:120px;">
+                <input type="date"  id="abfDateFrom" onchange="renderApprovals()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:13px;">
+                <span style="color:var(--light-gray);">—</span>
+                <input type="date"  id="abfDateTo"   onchange="renderApprovals()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:13px;">
+                <button onclick="clearApprovalsFilters()" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:none;cursor:pointer;font-size:13px;color:var(--light-gray);">✕</button>
+            </div>
             <div id="approvalsList"></div>
         </div>
 
@@ -1277,8 +1285,22 @@
             <div id="rolesMobileCards" class="mob-only"></div>
         </div>
 
-        <!-- Dashboard Section -->
+        <!-- Dashboard / Analytics Section -->
         <div id="dashboard" class="content-section">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+                <h2 class="section-title" style="margin-bottom:0;" data-ru="📊 Аналитика" data-uz="📊 Tahlil">📊 Аналитика</h2>
+            </div>
+            <!-- Unified period + filters -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;padding:12px 14px;background:var(--bg-main);border-radius:12px;border:1px solid var(--border);">
+                <button class="btn rep-period-btn active" data-period="day"   onclick="setReportPeriod('day')"   data-ru="День"   data-uz="Kun">День</button>
+                <button class="btn rep-period-btn"        data-period="week"  onclick="setReportPeriod('week')"  data-ru="Неделя" data-uz="Hafta">Неделя</button>
+                <button class="btn rep-period-btn"        data-period="month" onclick="setReportPeriod('month')" data-ru="Месяц"  data-uz="Oy">Месяц</button>
+                <span style="color:var(--light-gray);margin-left:4px;" data-ru="или:" data-uz="yoki:">или:</span>
+                <input type="date" id="repFrom" onchange="onRepFromChange()" style="padding:8px;border-radius:8px;border:1px solid var(--border);">
+                <span>—</span>
+                <input type="date" id="repTo"   onchange="setReportPeriod('custom')" style="padding:8px;border-radius:8px;border:1px solid var(--border);">
+                <span id="repRangeLabel" style="margin-left:auto;font-weight:700;color:var(--primary);"></span>
+            </div>
             <div class="dashboard">
                 <div class="stat-card">
                     <div class="stat-label" data-ru="Выручка сегодня" data-uz="Bugungi daromad">Выручка сегодня</div>
@@ -1295,33 +1317,43 @@
             </div>
 
             <!-- Live workflow / payment counters (today) -->
+            <!-- Main stats (active records, excluding declined) -->
             <div class="dashboard" style="margin-top:0;">
-                <div class="stat-card" style="border-left:4px solid #f59e0b;">
-                    <div class="stat-label" data-ru="🅿️ В очереди" data-uz="🅿️ Navbatda">🅿️ В очереди</div>
-                    <div class="stat-value" id="dash-queue" style="font-size:30px;">0</div>
-                </div>
-                <div class="stat-card" style="border-left:4px solid #2563eb;">
-                    <div class="stat-label" data-ru="🚿 Моются сейчас" data-uz="🚿 Yuvilmoqda">🚿 Моются сейчас</div>
-                    <div class="stat-value" id="dash-washing" style="font-size:30px;">0</div>
-                </div>
-                <div class="stat-card" style="border-left:4px solid #10b981;">
-                    <div class="stat-label" data-ru="✅ Помыто сегодня" data-uz="✅ Bugun yuvilgan">✅ Помыто сегодня</div>
-                    <div class="stat-value" id="dash-done" style="font-size:30px;">0</div>
-                </div>
-                <div class="stat-card" style="border-left:4px solid #059669;">
-                    <div class="stat-label" data-ru="💳 Оплачено" data-uz="💳 To'langan">💳 Оплачено</div>
-                    <div class="stat-value" id="dash-paid" style="font-size:30px;">0</div>
-                </div>
-                <div class="stat-card" style="border-left:4px solid #ef4444;">
-                    <div class="stat-label" data-ru="⏳ Не оплачено" data-uz="⏳ To'lanmagan">⏳ Не оплачено</div>
-                    <div class="stat-value" id="dash-unpaid" style="font-size:30px;">0</div>
+                <div class="stat-card"><div class="stat-label" data-ru="💰 Выручка" data-uz="💰 Daromad">💰 Выручка</div><div class="stat-value" id="rep-revenue">0</div></div>
+                <div class="stat-card"><div class="stat-label" data-ru="🚗 Машин" data-uz="🚗 Mashinalar">🚗 Машин</div><div class="stat-value" id="rep-came">0</div></div>
+                <div class="stat-card"><div class="stat-label" data-ru="💵 Средний чек" data-uz="💵 O'rtacha chek">💵 Средний чек</div><div class="stat-value" id="rep-avg">0</div></div>
+            </div>
+            <div class="dashboard" style="margin-top:0;">
+                <div class="stat-card" style="border-left:4px solid #f59e0b;"><div class="stat-label">🅿️ <span data-ru="В очереди" data-uz="Navbatda">В очереди</span></div><div class="stat-value" id="dash-queue" style="font-size:28px;">0</div></div>
+                <div class="stat-card" style="border-left:4px solid #2563eb;"><div class="stat-label">🚿 <span data-ru="Моются" data-uz="Yuvilmoqda">Моются</span></div><div class="stat-value" id="dash-washing" style="font-size:28px;">0</div></div>
+                <div class="stat-card" style="border-left:4px solid #10b981;"><div class="stat-label">✅ <span data-ru="Помыто" data-uz="Yuvilgan">Помыто</span></div><div class="stat-value" id="dash-done" style="font-size:28px;">0</div></div>
+                <div class="stat-card" style="border-left:4px solid #059669;"><div class="stat-label">💳 <span data-ru="Оплачено" data-uz="To'langan">Оплачено</span></div><div class="stat-value" id="dash-paid" style="font-size:28px;">0</div></div>
+                <div class="stat-card" style="border-left:4px solid #ef4444;"><div class="stat-label">⏳ <span data-ru="Не оплачено" data-uz="To'lanmagan">Не оплачено</span></div><div class="stat-value" id="dash-unpaid" style="font-size:28px;">0</div></div>
+            </div>
+            <!-- Canceled / declined stats (separate row) -->
+            <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:12px;padding:14px 16px;margin-bottom:16px;">
+                <div style="font-size:13px;font-weight:700;color:#b91c1c;margin-bottom:10px;" data-ru="❌ Отменённые заявки (не включены в выручку выше)" data-uz="❌ Bekor qilingan arizalar (yuqoridagi daromadga kirmaydi)">❌ Отменённые заявки (не включены в выручку выше)</div>
+                <div style="display:flex;flex-wrap:wrap;gap:12px;">
+                    <div><div style="font-size:12px;color:#b91c1c;" data-ru="Отменено" data-uz="Bekor qilingan">Отменено</div><div style="font-size:24px;font-weight:800;color:#b91c1c;" id="dash-declined">0</div></div>
+                    <div><div style="font-size:12px;color:#b91c1c;" data-ru="Сумма (потеряно)" data-uz="Summa (yo'qotilgan)">Сумма (потеряно)</div><div style="font-size:18px;font-weight:700;color:#b91c1c;" id="dash-declined-amt">0</div></div>
                 </div>
             </div>
-
-            <div class="chart-container" style="display:block;min-height:auto;text-align:left;">
-                <h3 style="margin-bottom:14px;font-size:16px;" data-ru="💰 Выручка сегодня (по часам)" data-uz="💰 Bugungi daromad (soatlar)">💰 Выручка сегодня (по часам)</h3>
-                <div style="position:relative;height:240px;"><canvas id="chartTodayHourly"></canvas></div>
+            <!-- Hourly chart -->
+            <div class="chart-container" style="display:block;min-height:auto;text-align:left;margin-bottom:16px;">
+                <h3 style="margin-bottom:14px;font-size:16px;" data-ru="💰 Выручка по часам" data-uz="💰 Soatlar bo'yicha daromad">💰 Выручка по часам</h3>
+                <div style="position:relative;height:220px;"><canvas id="chartTodayHourly"></canvas></div>
                 <div id="todayIncomeChart" style="display:none;"></div>
+            </div>
+            <!-- Per-service breakdown (from reports) -->
+            <div style="background:var(--bg-card);border-radius:12px;border:1px solid var(--border);padding:16px;margin-bottom:16px;">
+                <h3 style="font-size:15px;font-weight:700;margin-bottom:10px;" data-ru="🧼 Разбивка по услугам" data-uz="🧼 Xizmatlar bo'yicha">🧼 Разбивка по услугам</h3>
+                <div id="rep-services"></div>
+            </div>
+            <!-- Pay method breakdown -->
+            <div class="dashboard" style="margin-top:0;margin-bottom:0;">
+                <div class="stat-card"><div class="stat-label" data-ru="💵 Наличные (записи)" data-uz="💵 Naqd (yozuvlar)">💵 Наличные</div><div class="stat-value" id="rep-cash" style="font-size:24px;">0</div></div>
+                <div class="stat-card"><div class="stat-label" data-ru="💳 Карта (записи)" data-uz="💳 Karta (yozuvlar)">💳 Карта</div><div class="stat-value" id="rep-card" style="font-size:24px;">0</div></div>
+                <div class="stat-card"><div class="stat-label" data-ru="👤 Уник. клиентов" data-uz="👤 Yagona mijozlar">👤 Уник. клиентов</div><div class="stat-value" id="rep-customers" style="font-size:24px;">0</div></div>
             </div>
         </div>
 
@@ -1414,6 +1446,12 @@
             <div class="search-bar">
                 <input type="text" class="search-input" placeholder="Поиск по номеру, марке или модели..." id="bookingSearch" data-placeholder-ru="Поиск по номеру, марке или модели..." data-placeholder-uz="Raqam, marka yoki model bo'yicha qidirish...">
                 <span class="search-icon">🔍</span>
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+                <input type="date" id="adminDateFrom" onchange="renderBookings()" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:14px;" title="Дата от">
+                <span style="color:var(--light-gray);">—</span>
+                <input type="date" id="adminDateTo"   onchange="renderBookings()" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:14px;" title="Дата до">
+                <button onclick="clearAdminDateFilter()" style="padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:none;cursor:pointer;font-size:13px;color:var(--light-gray);" title="Сбросить даты">✕ Сброс</button>
             </div>
             <div style="display:flex; gap:15px; margin-bottom:25px; flex-wrap:wrap;" id="bookingFilterBtns">
 
@@ -1535,7 +1573,7 @@
         </div>
 
         <!-- Payments Section -->
-        <div id="payments" class="content-section">
+        <div id="payments" class="content-section" style="display:none!important;">
             <div class="section-header">
                 <h2 class="section-title" data-ru="Учёт платежей" data-uz="To'lovlar hisobi">Учёт платежей</h2>
                 <button class="btn btn-primary" onclick="openModal('paymentModal')"><span data-ru="➕ Записать платёж" data-uz="➕ To'lovni yozish">➕ Записать платёж</span></button>
@@ -1805,7 +1843,7 @@
         </div>
 
         <!-- Reports Section -->
-        <div id="reports" class="content-section">
+        <div id="reports" class="content-section" style="display:none!important;">
             <div class="section-header">
                 <h2 class="section-title" data-ru="Отчёты и аналитика" data-uz="Hisobotlar va tahlil">Отчёты и аналитика</h2>
             </div>
@@ -1816,7 +1854,7 @@
                 <button class="btn rep-period-btn"        data-period="week"  onclick="setReportPeriod('week')"  data-ru="Неделя" data-uz="Hafta">Неделя</button>
                 <button class="btn rep-period-btn"        data-period="month" onclick="setReportPeriod('month')" data-ru="Месяц"  data-uz="Oy">Месяц</button>
                 <span style="margin-left:10px;color:var(--light-gray);" data-ru="или диапазон:" data-uz="yoki oraliq:">или диапазон:</span>
-                <input type="date" id="repFrom" onchange="setReportPeriod('custom')" style="padding:8px;border-radius:8px;border:1px solid var(--border);">
+                <input type="date" id="repFrom" onchange="onRepFromChange()" style="padding:8px;border-radius:8px;border:1px solid var(--border);">
                 <span>—</span>
                 <input type="date" id="repTo"   onchange="setReportPeriod('custom')" style="padding:8px;border-radius:8px;border:1px solid var(--border);">
                 <span id="repRangeLabel" style="margin-left:auto;font-weight:600;color:var(--primary);"></span>
@@ -2434,10 +2472,30 @@
                         <option value="closed" data-ru="Закрыто" data-uz="Yopiq">Закрыто</option>
                     </select>
                 </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label data-ru="Координаты (для карты и «Ближайший филиал»)" data-uz="Koordinatalar (xarita va «Eng yaqin filial» uchun)">Координаты (для карты и «Ближайший филиал»)</label>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <input type="text" id="locLat" inputmode="decimal" placeholder="41.311081 (широта)" style="flex:1;">
+                        <input type="text" id="locLng" inputmode="decimal" placeholder="69.279720 (долгота)" style="flex:1;">
+                    </div>
+                    <div style="font-size:12px;color:var(--light-gray);margin-top:6px;" data-ru="На Яндекс.Картах: правый клик по точке → координаты появятся сверху. Скопируйте широту и долготу." data-uz="Yandex.Xaritada: nuqtaga o'ng tugma → koordinatalar chiqadi. Kenglik va uzunlikni ko'chiring.">На Яндекс.Картах: правый клик по точке → координаты появятся сверху. Скопируйте широту и долготу.</div>
+                </div>
             </div>
             <div style="display:flex;gap:15px;justify-content:flex-end;">
                 <button class="btn btn-secondary" onclick="closeModal('locationModal')"><span data-ru="Отмена" data-uz="Bekor qilish">Отмена</span></button>
                 <button class="btn btn-primary" onclick="saveLocation()"><span data-ru="Сохранить филиал" data-uz="Filialni saqlash">Сохранить филиал</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Booking detail modal (admin Брони) ───────────────────────── -->
+    <div id="bookingDetailModal" class="modal">
+        <div class="modal-content" style="max-width:480px;">
+            <button class="modal-close" onclick="closeModal('bookingDetailModal')">&times;</button>
+            <h3 class="modal-header" data-ru="🔍 Детали брони" data-uz="🔍 Bron tafsilotlari">🔍 Детали брони</h3>
+            <div id="bookingDetailBody"></div>
+            <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+                <button class="btn btn-secondary" onclick="closeModal('bookingDetailModal')"><span data-ru="Закрыть" data-uz="Yopish">Закрыть</span></button>
             </div>
         </div>
     </div>
@@ -2762,7 +2820,10 @@
         // Language switching function
         function switchLanguage(lang) {
             currentLang = lang;
-            
+            // Toggle button shows the language you'll switch TO next
+            var langBtn = document.getElementById('langToggleBtn');
+            if (langBtn) langBtn.textContent = lang === 'ru' ? 'RU' : 'UZ';
+
             // Update all elements with data-ru and data-uz attributes
             document.querySelectorAll('[data-ru]').forEach(el => {
                 const translation = el.getAttribute('data-' + lang);
@@ -2801,14 +2862,13 @@
             }
             // Re-render dynamic tables with new language
             if (typeof renderAll === 'function') renderAll();
+            // The Брони (approvals) list isn't part of renderAll — re-render it too
+            if (typeof renderApprovals === 'function') renderApprovals();
         }
 
-        // Language selector
-        const langSelector = document.getElementById('langSelector');
-        if (langSelector) {
-            langSelector.addEventListener('change', (e) => {
-                switchLanguage(e.target.value);
-            });
+        // Language toggle (RU ↔ UZ), same UX as the worker app
+        function toggleAdminLang() {
+            switchLanguage(currentLang === 'ru' ? 'uz' : 'ru');
         }
 
         // Tab switching — shared function used by top nav, bottom nav, and code
@@ -2831,6 +2891,9 @@
                     window.Telegram.WebApp.BackButton.hide();
                 }
             }
+            if (tabName === 'reports' || tabName === 'history') { switchTab('dashboard'); return; }
+            if (tabName === 'payments')  { switchTab('appointments'); return; }
+            if (tabName === 'dashboard') { updateDashboard(); return; }
             if (typeof renderAll === 'function') renderAll();
         }
 
@@ -3240,7 +3303,8 @@
                     payment_status:  b.payment_status  || 'pending',
                     workflow_status: b.workflow_status || 'queue',
                     wash_time:       b.wash_time      || '',
-                    photo_url:       b.photo_url      || ''
+                    photo_url:       b.photo_url      || '',
+                    business_id:     localStorage.getItem('lg_admin_biz') || 'biz_default'
                 };
             },
 
@@ -3320,10 +3384,11 @@
                 var chk = await _sb.from('payments').select('id').eq('booking_id', p.booking_id).limit(1);
                 if (chk.data && chk.data.length > 0) return;
                 var { error } = await _sb.from('payments').insert({
-                    booking_id: p.booking_id,
-                    plate:      p.license_plate || '',
-                    amount:     p.amount        || 0,
-                    status:     p.payment_status || 'pending'
+                    booking_id:  p.booking_id,
+                    plate:       p.license_plate || '',
+                    amount:      p.amount        || 0,
+                    status:      p.payment_status || 'pending',
+                    business_id: localStorage.getItem('lg_admin_biz') || 'biz_default'
                 });
                 if (error) throw error;
             },
@@ -3351,23 +3416,34 @@
                     points:      lr.points      || 0,
                     total_spent: lr.total_spent || 0,
                     visits:      lr.visits      || 0,
-                    tier:        tier.label
-                }, { onConflict:'plate' });
+                    tier:        tier.label,
+                    business_id: localStorage.getItem('lg_admin_biz') || 'biz_default'
+                }, { onConflict:'business_id,plate' });
                 if (error) throw error;
             },
 
             // Load all three tables in parallel
             loadAll: async function() {
                 if (!_sb) throw new Error('no client');
-                var results = await Promise.all([
-                    _sb.from('bookings').select('*').order('created_at', { ascending:false }),
-                    _sb.from('payments').select('*').order('created_at', { ascending:false }),
-                    _sb.from('loyalty').select('*')
-                ]);
+                // Scope every table to the ACTIVE business so switching
+                // businesses shows ONLY that business's records.
+                var biz = localStorage.getItem('lg_admin_biz') || '';
+                var bq = _sb.from('bookings').select('*').order('created_at', { ascending:false });
+                var pq = _sb.from('payments').select('*').order('created_at', { ascending:false });
+                var lq = _sb.from('loyalty').select('*');
+                if (biz) {
+                    bq = bq.eq('business_id', biz);
+                    pq = pq.eq('business_id', biz);
+                    lq = lq.eq('business_id', biz);
+                }
+                var results = await Promise.all([bq, pq, lq]);
                 return {
                     bookings:    results[0].data || [],
                     payments:    results[1].data || [],
                     loyalty:     results[2].data || [],
+                    bookingsErr: results[0].error,
+                    paymentsErr: results[1].error,
+                    loyaltyErr:  results[2].error,
                     errors:      [results[0].error, results[1].error, results[2].error].filter(Boolean)
                 };
             }
@@ -3381,13 +3457,14 @@
                 var res = await SB.loadAll();
                 if (res.errors.length) console.warn('Supabase partial errors:', res.errors);
 
-                // Bookings: Supabase columns + localStorage extras
-                if (res.bookings.length > 0) {
+                // Bookings: overwrite with THIS business's set (even if empty),
+                // so switching to a business with no records clears the list.
+                if (!res.bookingsErr) {
                     DB.save('crm_bookings', res.bookings.map(function(r){ return SB._fromBRow(r); }));
                 }
 
                 // Payments: reconstruct local format from Supabase row
-                if (res.payments.length > 0) {
+                if (!res.paymentsErr) {
                     DB.save('crm_payments', res.payments.map(function(r) {
                         var ext = getExtras(r.booking_id);
                         return {
@@ -3406,7 +3483,7 @@
                 }
 
                 // Loyalty: Supabase is source of truth
-                if (res.loyalty.length > 0) {
+                if (!res.loyaltyErr) {
                     var loy = {};
                     res.loyalty.forEach(function(r){ loy[r.plate] = SB._fromLRow(r); });
                     DB.save('crm_loyalty', loy);
@@ -3511,6 +3588,14 @@
             renderBookings();
         }
 
+        function clearAdminDateFilter() {
+            var f = document.getElementById('adminDateFrom');
+            var t = document.getElementById('adminDateTo');
+            if (f) f.value = '';
+            if (t) t.value = '';
+            renderBookings();
+        }
+
         // Strip a plate/text down to bare alphanumerics for fuzzy matching.
         // "01 | A 123 AA" → "01A123AA"  |  "01 a 123 aa" → "01A123AA"
         function normPlate(s) {
@@ -3521,8 +3606,13 @@
         // in the 🔔 Брони tab — it must NOT appear in the main Записи or stats
         // until the car actually arrives (status 'arrived') or it's a walk-in.
         function isActiveRecord(b) {
-            return !(b.source === 'customer' &&
-                     ['pending','approved','declined'].indexOf(b.status || '') >= 0);
+            // Pending-only customer bookings live only in Брони, not Записи.
+            // Approved → show in Записи (car is coming). Declined → История only.
+            if (b.source === 'customer') {
+                var st = b.status || 'pending';
+                if (st === 'pending' || st === 'declined') return false;
+            }
+            return true;
         }
 
         // ── Render: Appointments ──────────────────────────────────────
@@ -3537,6 +3627,9 @@
             var today = todayTash();
             var nowMs = Date.now();
 
+            var adminFrom = (document.getElementById('adminDateFrom') ? document.getElementById('adminDateFrom').value : '') || '';
+            var adminTo   = (document.getElementById('adminDateTo')   ? document.getElementById('adminDateTo').value   : '') || '';
+
             var list = bookings
                 .filter(function(b){
                     if (!term) return true;
@@ -3546,6 +3639,13 @@
                     var hay = [b.car_brand, b.car_model, svcLabel(b.service, b.service_label),
                                b.washer, b.license_plate, b.id].join(' ').toLowerCase();
                     return hay.includes(term);
+                })
+                .filter(function(b) {
+                    if (!adminFrom && !adminTo) return true;
+                    var d = rowDate(b);
+                    if (adminFrom && d < adminFrom) return false;
+                    if (adminTo   && d > adminTo)   return false;
+                    return true;
                 })
                 .filter(function(b) {
                     var wfS = b.workflow_status || 'queue';
@@ -3613,8 +3713,8 @@
                         '<div class="mob-card-row"><span>👷 ' + (b.washer || '—') + '</span></div>' +
                         photoHtml +
                         '<div class="mob-card-actions">' +
-                            '<button class="btn" style="background:var(--gradient-1);color:#fff;" onclick="openEditBooking(\'' + b.id + '\')">✏️ Изменить</button>' +
-                            (py !== 'paid' ? '<button class="btn" style="background:#6366f1;color:#fff;" onclick="markPaid(\'' + b.id + '\')">💳 Оплачено</button>' : '') +
+                            '<button class="btn" style="background:var(--gradient-1);color:#fff;" onclick="openEditBooking(\'' + b.id + '\')">✏️ ' + (L?'Tahrirlash':'Изменить') + '</button>' +
+                            (py !== 'paid' ? '<button class="btn" style="background:#6366f1;color:#fff;" onclick="markPaid(\'' + b.id + '\')">💳 ' + (L?'To\'landi':'Оплачено') + '</button>' : '') +
                             '<button class="btn" style="background:#ef4444;color:#fff;" onclick="deleteBooking(\'' + b.id + '\')">🗑️</button>' +
                         '</div>' +
                     '</div>';
@@ -3809,47 +3909,90 @@
         }
 
         function updateDashboard() {
+            // Dashboard now uses the same reportRange() as the reports section
             var payments = DB.load('crm_payments', []);
-            var loyalty  = DB.load('crm_loyalty', {});
-            var bookings = DB.load('crm_bookings', []).filter(isActiveRecord);
-            var L        = currentLang === 'uz';
-            var today    = todayTash();
+            var rawBookings = DB.load('crm_bookings', []);   // unfiltered (keeps declined!)
+            var L    = currentLang === 'uz';
+            var unit = L ? " so'm" : ' сум';
+            var rng  = reportRange();
+            function inRange(x) { var d = rowDate(x); return d >= rng.from && d <= rng.to; }
 
-            var todayB   = bookings.filter(function(b){ return rowDate(b) === today; });
+            var rngAll = rawBookings.filter(inRange);
+            // Active = approved customer bookings + walk-ins (excludes pending & declined)
+            var active   = rngAll.filter(isActiveRecord).filter(function(b){ return !isDeclined(b); });
+            // Canceled = declined bookings only
+            var canceled = rngAll.filter(isDeclined);
 
-            // Revenue today = paid payments dated today
-            var todayRev = payments
-                .filter(function(p){ return rowDate(p) === today && p.payment_status === 'paid'; })
-                .reduce(function(s, p){ return s + (p.amount || 0); }, 0);
+            var washing = active.filter(function(b){ return (b.workflow_status||'queue') === 'washing'; }).length;
+            var done    = active.filter(function(b){ return (b.workflow_status||'queue') === 'done';    }).length;
+            var queue   = active.filter(function(b){ return (b.workflow_status||'queue') === 'queue';   }).length;
+            var paid    = active.filter(function(b){ return b.payment_status === 'paid'; }).length;
+            var unpaid  = active.filter(function(b){ return b.payment_status !== 'paid'; }).length;
 
-            // Workflow counts (today)
-            var washing = todayB.filter(function(b){ return (b.workflow_status||'queue') === 'washing'; }).length;
-            var done    = todayB.filter(function(b){ return (b.workflow_status||'queue') === 'done';    }).length;
-            var queue   = todayB.filter(function(b){ return (b.workflow_status||'queue') === 'queue';   }).length;
-            var paid    = todayB.filter(function(b){ return b.payment_status === 'paid'; }).length;
-            var unpaid  = todayB.length - paid;
+            var revenue = payments.filter(function(p){
+                return inRange(p) && p.payment_status === 'paid' &&
+                       !isDeclinedById(p.booking_id, rngAll);
+            }).reduce(function(s,p){ return s + (p.amount||0); }, 0);
 
-            // Active clients = plates with >= 2 visits this calendar month
-            var ym = today.slice(0,7);
-            var visitsByPlate = {};
-            bookings.forEach(function(b){
-                if (rowDate(b).slice(0,7) === ym && b.license_plate) {
-                    visitsByPlate[b.license_plate] = (visitsByPlate[b.license_plate]||0) + 1;
-                }
-            });
-            var activeClients = Object.keys(visitsByPlate).filter(function(p){ return visitsByPlate[p] >= 2; }).length;
+            var paidB = active.filter(function(x){ return x.payment_status==='paid'; });
+            var avg   = paidB.length ? Math.round(paidB.reduce(function(s,x){return s+(x.amount||0);},0)/paidB.length) : 0;
+            var cashN = active.filter(function(x){ return x.payment_status==='paid' && x.payment_type==='cash'; }).length;
+            var cardN = active.filter(function(x){ return x.payment_status==='paid' && x.payment_type==='card'; }).length;
+
+            var plates = {};
+            active.forEach(function(x){ if (x.license_plate) plates[x.license_plate] = 1; });
+
+            // Canceled stats
+            var canceledAmt = canceled.reduce(function(s,b){ return s+(b.amount||0); }, 0);
 
             function set(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
-            set('stat-today-revenue',    todayRev.toLocaleString() + (L ? " so'm" : ' сум'));
-            set('stat-active-customers', activeClients.toLocaleString());
-            set('stat-today-bookings',   todayB.length);
-            set('dash-washing', washing);
-            set('dash-done',    done);
-            set('dash-queue',   queue);
-            set('dash-paid',    paid);
-            set('dash-unpaid',  unpaid);
+            set('dash-washing',  washing);
+            set('dash-done',     done);
+            set('dash-queue',    queue);
+            set('dash-paid',     paid);
+            set('dash-unpaid',   unpaid);
+            set('rep-revenue',   revenue.toLocaleString() + unit);
+            set('rep-came',      active.length);
+            set('rep-avg',       avg.toLocaleString() + unit);
+            set('rep-customers', Object.keys(plates).length);
+            set('rep-cash',      cashN);
+            set('rep-card',      cardN);
+            set('dash-declined', canceled.length);
+            set('dash-declined-amt', canceledAmt.toLocaleString() + unit);
 
-            drawTodayIncomeChart(payments, today, L);
+            // Update range label
+            var rl = document.getElementById('repRangeLabel');
+            if (rl) rl.textContent = rng.from === rng.to ? rng.from : (rng.from + ' → ' + rng.to);
+
+            // Service breakdown
+            var svcMap = {};
+            active.forEach(function(x){
+                var key = x.service || 'custom';
+                var name = svcLabel(key, x.service_label);
+                if (!svcMap[name]) svcMap[name] = { count:0, sum:0 };
+                svcMap[name].count++;
+                if (x.payment_status === 'paid') svcMap[name].sum += (x.amount||0);
+            });
+            var rows = Object.keys(svcMap).sort(function(a,c){ return svcMap[c].count - svcMap[a].count; });
+            var svcBox = document.getElementById('rep-services');
+            if (svcBox) svcBox.innerHTML = rows.length ? rows.map(function(name){
+                var s = svcMap[name];
+                return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">' +
+                    '<span style="font-weight:600;">' + name + '</span>' +
+                    '<span>' + s.count + ' ' + (L?'ta':'шт') + ' · ' + s.sum.toLocaleString() + unit + '</span></div>';
+            }).join('') : '<p style="color:var(--light-gray);padding:10px 0;">—</p>';
+
+            drawTodayIncomeChart(payments, rng.from === rng.to ? rng.from : todayTash(), L);
+        }
+
+        // Helper: is this booking declined/canceled?
+        function isDeclined(b) {
+            return (b.status || '') === 'declined' || (b.workflow_status || '') === 'canceled';
+        }
+        function isDeclinedById(bid, bookingList) {
+            if (!bid) return false;
+            var found = bookingList.find(function(b){ return b.id === bid; });
+            return found ? isDeclined(found) : false;
         }
 
         // ── Today income chart (hourly bars, pure SVG — no external lib) ──
@@ -4265,6 +4408,9 @@
             var changed  = [];
             var now      = Date.now();
             bookings.forEach(function(b) {
+                // Never auto-advance customer bookings that aren't checked in yet —
+                // they must stay "Подтверждено" in Брони, not jump to "моются".
+                if (b.source === 'customer' && ['pending','approved','declined'].indexOf(b.status||'') >= 0) return;
                 if (b.manual_override) return;
                 if (!b.date || !b.time) return;
                 var startMs = new Date(b.date + 'T' + b.time + ':00').getTime();
@@ -4309,49 +4455,201 @@
         // ═══════════════════════════════════════════════════════════════
         var _pendingBookings = [];
 
+        // Bucket helpers — every customer booking is exactly one of new /
+        // confirmed / canceled, so filter counts always sum to "Все".
+        var AB_CANCELED = ['declined','cancelled','canceled'];
+        function abIsNew(b){ return (b.status||'pending')==='pending'; }
+        function abIsCanceled(b){ return AB_CANCELED.indexOf(b.status) !== -1; }
+        function abIsConfirmed(b){ return !abIsNew(b) && !abIsCanceled(b); }
+        // Map a filter key to its predicate
+        function abMatch(key, b){
+            if (key==='pending')  return abIsNew(b);
+            if (key==='approved') return abIsConfirmed(b);
+            if (key==='declined') return abIsCanceled(b);
+            return true; // 'all'
+        }
+
         async function loadPendingBookings() {
             if (!_sb) return;
             try {
-                var res = await _sb.rpc('get_pending_bookings');
+                var res = await _sb.rpc('get_pending_bookings', { p_token: localStorage.getItem(AUTH_TOKEN_KEY) });
                 _pendingBookings = (!res.error && Array.isArray(res.data)) ? res.data : [];
             } catch(e) { console.warn('loadPendingBookings:', e); _pendingBookings = []; }
             renderApprovals();
         }
 
-        function renderApprovals() {
-            var L = currentLang === 'uz';
-            var badge = document.getElementById('approvalsBadge');
-            if (badge) {
-                badge.textContent = _pendingBookings.length;
-                badge.style.display = _pendingBookings.length ? 'inline-block' : 'none';
-            }
-            var box = document.getElementById('approvalsList');
+        // ── История (declined/approved customer bookings) ────────────────
+        var _histFilter = 'all';
+        function setHistFilter(f) {
+            _histFilter = f;
+            ['all','approved','declined'].forEach(function(k){
+                var btn = document.getElementById('hf-' + k);
+                if (!btn) return;
+                var on = k === f;
+                btn.style.background  = on ? 'var(--primary)' : 'none';
+                btn.style.color       = on ? '#fff' : '';
+                btn.style.borderColor = on ? 'var(--primary)' : 'var(--border)';
+            });
+            renderHistory();
+        }
+        function clearHistFilters() {
+            var p = document.getElementById('hfPlate');   if (p) p.value = '';
+            var f = document.getElementById('hfDateFrom');if (f) f.value = '';
+            var t = document.getElementById('hfDateTo');  if (t) t.value = '';
+            setHistFilter('all');
+        }
+        function loadHistory() { renderHistory(); }
+        function renderHistory() {
+            var box = document.getElementById('historyList');
             if (!box) return;
-            if (!_pendingBookings.length) {
-                box.innerHTML = '<div style="text-align:center;padding:50px;color:var(--light-gray);">🎉 ' + (L?"Yangi arizalar yo'q":'Новых заявок нет') + '</div>';
+            var L = currentLang === 'uz';
+            var unit = L ? " so'm" : ' сум';
+            // declined + approved customer bookings (all stored in _pendingBookings)
+            var all = _pendingBookings.filter(function(b){
+                return b.status === 'approved' || b.status === 'declined';
+            });
+            var plateTerm = (document.getElementById('hfPlate') ? document.getElementById('hfPlate').value : '').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
+            var dateFrom  = document.getElementById('hfDateFrom') ? document.getElementById('hfDateFrom').value : '';
+            var dateTo    = document.getElementById('hfDateTo')   ? document.getElementById('hfDateTo').value   : '';
+            var visible = all.filter(function(b){
+                var st = b.status || 'pending';
+                if (_histFilter !== 'all' && st !== _histFilter) return false;
+                if (plateTerm && !(b.plate||'').replace(/[^A-Za-z0-9]/g,'').toUpperCase().includes(plateTerm)) return false;
+                var d = b.req_date || (b.created_at ? b.created_at.slice(0,10) : '');
+                if (dateFrom && d < dateFrom) return false;
+                if (dateTo   && d > dateTo)   return false;
+                return true;
+            });
+            // Sort: approved first, declined after; newest first within each
+            var rank = {approved:0, declined:1};
+            visible.sort(function(a,b){
+                var ra = rank[a.status||'declined']||0, rb = rank[b.status||'declined']||0;
+                if (ra !== rb) return ra - rb;
+                return (b.created_at||'').localeCompare(a.created_at||'');
+            });
+            if (!visible.length) {
+                box.innerHTML = '<div style="text-align:center;padding:50px;color:var(--light-gray);">📭 ' + (L?"Tarix bo'sh":'История пуста') + '</div>';
                 return;
             }
-            // count only pending for the badge
-            var pendingCount = _pendingBookings.filter(function(b){ return (b.status||'pending')==='pending'; }).length;
-            if (badge) { badge.textContent = pendingCount; badge.style.display = pendingCount ? 'inline-block' : 'none'; }
+            box.innerHTML = visible.map(function(b){
+                var st = b.status || '';
+                var stripe = st==='declined' ? '#ef4444' : '#10b981';
+                var badge  = st==='declined'
+                    ? '<span style="background:#fee2e2;color:#b91c1c;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;">❌ ' + (L?'Rad etilgan':'Отклонён') + '</span>'
+                    : '<span style="background:#d1fae5;color:#065f46;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;">✅ ' + (L?'Tasdiqlangan':'Подтверждён') + '</span>';
+                return '<div class="mob-card" style="border-left:4px solid ' + stripe + ';' + (st==='declined'?'opacity:.8;':'') + '">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">' +
+                        '<span style="font-family:monospace;font-weight:800;font-size:17px;">' + (b.plate||'—').replace(' | ',' ') + '</span>' + badge +
+                    '</div>' +
+                    '<div style="margin-top:8px;font-size:13px;color:var(--light-gray);display:flex;flex-direction:column;gap:3px;">' +
+                        '<span>📍 <strong style="color:var(--light);">' + (b.branch||'—') + '</strong></span>' +
+                        '<span>🧼 ' + svcLabel(b.service, b.service_name) + ' · <strong>' + (b.amount||0).toLocaleString() + unit + '</strong></span>' +
+                        '<span>🗓️ ' + (b.req_date||'') + ' ' + (b.req_time||'') + '</span>' +
+                        (b.phone ? '<span>📞 ' + b.phone + '</span>' : '') +
+                        (st==='declined' && b.decline_reason ? '<span style="color:#b91c1c;">✖ ' + b.decline_reason + '</span>' : '') +
+                    '</div>' +
+                '</div>';
+            }).join('');
+        }
 
-            box.innerHTML = _pendingBookings.map(function(b){
+        var _approvalsFilter = 'all';
+        function setApprovalsFilter(f) {
+            _approvalsFilter = f;
+            ['all','pending','approved','declined'].forEach(function(k){
+                var btn = document.getElementById('abf-' + k);
+                if (!btn) return;
+                var active = k === f;
+                btn.style.background     = active ? 'var(--primary)' : 'none';
+                btn.style.color          = active ? '#fff' : '';
+                btn.style.borderColor    = active ? 'var(--primary)' : 'var(--border)';
+            });
+            renderApprovals();
+        }
+        function clearApprovalsFilters() {
+            var pf = document.getElementById('abfPlate');   if (pf) pf.value = '';
+            var df = document.getElementById('abfDateFrom');if (df) df.value = '';
+            var dt = document.getElementById('abfDateTo');  if (dt) dt.value = '';
+            setApprovalsFilter('all');
+        }
+
+        function renderApprovals() {
+            var L = currentLang === 'uz';
+            // NEW (pending) count drives both the top-nav and bottom-nav badges
+            var newCount = _pendingBookings.filter(abIsNew).length;
+            ['approvalsBadge','tgApprovalsBadge'].forEach(function(bid){
+                var bd = document.getElementById(bid);
+                if (bd) { bd.textContent = newCount; bd.style.display = newCount ? 'inline-block' : 'none'; }
+            });
+            // Stage counts on the filter buttons (📋 Все 12 · ⏳ Новые 3 · …).
+            // Confirmed is the catch-all (approved/arrived/…) so the three
+            // buckets always add up to "Все".
+            var cApproved = _pendingBookings.filter(abIsConfirmed).length;
+            var cDeclined = _pendingBookings.filter(abIsCanceled).length;
+            (function(){
+                var counts = { 'abf-all':_pendingBookings.length, 'abf-pending':newCount, 'abf-approved':cApproved, 'abf-declined':cDeclined };
+                Object.keys(counts).forEach(function(id){
+                    var btn = document.getElementById(id);
+                    if (!btn) return;
+                    var base = btn.getAttribute('data-' + currentLang) || btn.getAttribute('data-ru') || btn.textContent;
+                    btn.textContent = base + (counts[id] ? ' ' + counts[id] : '');
+                });
+            })();
+            var box = document.getElementById('approvalsList');
+            if (!box) return;
+
+            // ── Filters ──────────────────────────────────────────────────
+            var plateTerm = (document.getElementById('abfPlate') ? document.getElementById('abfPlate').value : '').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
+            var dateFrom  = document.getElementById('abfDateFrom') ? document.getElementById('abfDateFrom').value : '';
+            var dateTo    = document.getElementById('abfDateTo')   ? document.getElementById('abfDateTo').value   : '';
+
+            var visible = _pendingBookings.filter(function(b){
+                if (!abMatch(_approvalsFilter, b)) return false;
+                if (plateTerm && !(b.plate||'').replace(/[^A-Za-z0-9]/g,'').toUpperCase().includes(plateTerm)) return false;
+                var d = b.req_date || (b.created_at ? b.created_at.slice(0,10) : '');
+                if (dateFrom && d < dateFrom) return false;
+                if (dateTo   && d > dateTo)   return false;
+                return true;
+            });
+
+            // ── Sort: pending → approved → declined; newest first within each ─
+            var statusRank = { pending:0, approved:1, declined:2 };
+            visible.sort(function(a,b){
+                var ra = statusRank[a.status||'pending'] || 0;
+                var rb = statusRank[b.status||'pending'] || 0;
+                if (ra !== rb) return ra - rb;
+                // Within same status: newest first (created_at desc)
+                var ca = a.created_at || '';
+                var cb = b.created_at || '';
+                return cb.localeCompare(ca);
+            });
+
+            if (!visible.length) {
+                box.innerHTML = '<div style="text-align:center;padding:50px;color:var(--light-gray);">🎉 ' + (L?"Hech narsa topilmadi":'Ничего не найдено') + '</div>';
+                return;
+            }
+            box.innerHTML = visible.map(function(b){
                 var svcName = svcLabel(b.service, b.service_name);
                 var st = b.status || 'pending';
-                var stripe = st==='declined' ? '#ef4444' : st==='approved' ? '#10b981' : '#f59e0b';
-                var stBadge = st==='declined'
+                var isCanceled = abIsCanceled(b);
+                var isArrived  = st==='arrived';   // confirmed + car already in the queue
+                var stripe = isCanceled ? '#ef4444' : (st==='approved'||isArrived) ? '#10b981' : '#f59e0b';
+                var stBadge = isCanceled
                         ? '<span class="badge badge-danger">❌ ' + (L?'Rad etilgan':'Отклонён') + '</span>'
+                    : isArrived
+                        ? '<span class="badge badge-success">🚗 ' + (L?'Keldi · navbatda':'Прибыл · в очереди') + '</span>'
                     : st==='approved'
                         ? '<span class="badge badge-success">✅ ' + (L?'Tasdiqlangan':'Подтверждено') + '</span>'
                         : '<span class="badge badge-warning">⏳ ' + (L?'Kutilmoqda':'Ожидает') + '</span>';
-                var actions = st==='declined'
+                var actions = isCanceled
                         ? '<button class="btn" style="flex:1;background:#64748b;color:#fff;" onclick="deleteBookingAdmin(\'' + b.id + '\')">🗑️ ' + (L?"O'chirish":'Удалить') + '</button>'
+                    : isArrived
+                        ? ''
                     : st==='approved'
                         ? '<button class="btn" style="flex:1;background:#ef4444;color:#fff;" onclick="declineBooking(\'' + b.id + '\')">❌ ' + (L?'Bekor qilish':'Отменить') + '</button>'
                     :   '<button class="btn btn-primary" style="flex:1;background:#10b981;" onclick="approveBooking(\'' + b.id + '\')">✅ ' + (L?'Tasdiqlash':'Подтвердить') + '</button>' +
                         '<button class="btn" style="flex:1;background:#ef4444;color:#fff;" onclick="declineBooking(\'' + b.id + '\')">❌ ' + (L?'Rad etish':'Отклонить') + '</button>';
                 return '<div class="mob-card" style="border-left:4px solid ' + stripe + ';' + (st==='declined'?'opacity:.7;':'') + '">' +
-                    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;cursor:pointer;" onclick="openBookingDetail(\'' + b.id + '\')">' +
                         '<span style="font-family:monospace;font-weight:800;font-size:18px;">' + (b.plate||'—').replace(' | ',' ') + '</span>' + stBadge +
                     '</div>' +
                     '<div style="margin-top:8px;font-size:14px;color:var(--light-gray);display:flex;flex-direction:column;gap:4px;">' +
@@ -4362,9 +4660,45 @@
                         (b.comment ? '<span>💬 ' + b.comment + '</span>' : '') +
                         (st==='declined' && b.decline_reason ? '<span style="color:#b91c1c;">✖ ' + b.decline_reason + '</span>' : '') +
                     '</div>' +
-                    '<div style="display:flex;gap:8px;margin-top:12px;">' + actions + '</div>' +
+                    '<button class="btn" style="width:100%;margin-top:10px;background:none;border:1px solid var(--border);color:var(--light);" onclick="openBookingDetail(\'' + b.id + '\')">🔍 ' + (L?'Batafsil':'Подробнее') + '</button>' +
+                    '<div style="display:flex;gap:8px;margin-top:8px;">' + actions + '</div>' +
                 '</div>';
             }).join('');
+        }
+
+        // Full-detail modal for a single booking (admin "Брони" tab)
+        function openBookingDetail(id) {
+            var b = _pendingBookings.filter(function(x){ return x.id === id; })[0];
+            if (!b) return;
+            var L = currentLang === 'uz';
+            var st = b.status || 'pending';
+            var stTxt = st==='declined' ? (L?'Rad etilgan':'Отклонён')
+                      : st==='approved' ? (L?'Tasdiqlangan':'Подтверждён')
+                      : (L?'Kutilmoqda':'Ожидает');
+            var unit = L ? " so'm" : ' сум';
+            var wf = b.workflow_status || 'queue';
+            var wfTxt = wf==='done' ? (L?'Tayyor':'Готово')
+                      : wf==='washing' ? (L?'Yuvilmoqda':'Моется')
+                      : (L?'Navbatda':'В очереди');
+            var by = b.decided_by==='worker' ? (L?'Yuvuvchi':'Мойщик')
+                   : b.decided_by==='admin'  ? (L?'Admin':'Администратор') : '';
+            var row = function(ic, label, val){ return val ? '<div style="display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px;"><span style="color:var(--light-gray);">'+ic+' '+label+'</span><strong style="text-align:right;">'+val+'</strong></div>' : ''; };
+            var body =
+                '<div style="font-family:monospace;font-weight:800;font-size:22px;text-align:center;margin-bottom:6px;">' + (b.plate||'—').replace(' | ',' ') + '</div>' +
+                '<div style="text-align:center;margin-bottom:12px;color:var(--light-gray);">' + stTxt + (by?(' · '+by):'') + '</div>' +
+                row('📍', L?'Filial':'Филиал', b.branch) +
+                row('🚙', L?'Avto':'Авто', [b.brand,b.model].filter(Boolean).join(' ')) +
+                row('🧼', L?'Xizmat':'Услуга', svcLabel(b.service, b.service_name)) +
+                row('💰', L?'Summa':'Сумма', (b.amount||0).toLocaleString()+unit) +
+                row('🗓️', L?'Vaqt':'Время', (b.req_date||'')+' '+(b.req_time||'')) +
+                row('🚿', L?'Yuvish':'Мойка', wfTxt) +
+                row('💳', L?'To\'lov':'Оплата', b.payment_status==='paid'?(L?'To\'langan':'Оплачено'):(L?'To\'lanmagan':'Не оплачено')) +
+                row('📞', L?'Telefon':'Телефон', b.phone ? '<a href="tel:'+b.phone+'">'+b.phone+'</a>' : '') +
+                row('💬', L?'Izoh':'Комментарий', b.comment) +
+                (st==='declined' ? row('✖', L?'Sabab':'Причина', b.decline_reason) : '') +
+                row('🕒', L?'Yaratilgan':'Создано', b.created_at ? b.created_at.replace('T',' ').slice(0,16) : '');
+            document.getElementById('bookingDetailBody').innerHTML = body;
+            openModal('bookingDetailModal');
         }
 
         async function deleteBookingAdmin(id) {
@@ -4381,7 +4715,7 @@
         async function approveBooking(id) {
             var L = currentLang === 'uz';
             try {
-                var res = await _sb.rpc('set_booking_status', { p_id:id, p_status:'approved', p_reason:'' });
+                var res = await _sb.rpc('set_booking_status', { p_id:id, p_status:'approved', p_reason:'', p_by:'admin' });
                 if (res.error) throw res.error;
                 showToast(L ? 'Tasdiqlandi ✓' : 'Подтверждено ✓');
                 loadPendingBookings();
@@ -4400,7 +4734,7 @@
                 if (reason === null) return;   // cancelled
             }
             try {
-                var res = await _sb.rpc('set_booking_status', { p_id:id, p_status:'declined', p_reason:reason||'' });
+                var res = await _sb.rpc('set_booking_status', { p_id:id, p_status:'declined', p_reason:reason||'', p_by:'admin' });
                 if (res.error) throw res.error;
                 showToast(L ? 'Rad etildi' : 'Отклонено');
                 loadPendingBookings();
@@ -4489,7 +4823,7 @@
         async function loadStaff() {
             if (!_sb) return;
             try {
-                var res = await _sb.rpc('get_staff');
+                var res = await _sb.rpc('get_staff', { p_token: localStorage.getItem(AUTH_TOKEN_KEY) });
                 if (!res.error && Array.isArray(res.data)) {
                     _staffCache = res.data;
                     DB.save('crm_staff', _staffCache);
@@ -4613,8 +4947,8 @@
                                 '<div style="font-size:12px;color:var(--light-gray);">@' + (w.telegram_username||'') + '</div>' +
                             '</div>' +
                             (isPaid
-                                ? '<span style="background:#d1fae5;color:#065f46;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;">✅ Выплачено</span>'
-                                : '<button onclick="toggleSalaryPaid(\'' + uname + '\')" style="background:#6366f1;color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">💵 Выплатить</button>') +
+                                ? '<span style="background:#d1fae5;color:#065f46;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;">✅ ' + (L?'To\'langan':'Выплачено') + '</span>'
+                                : '<button onclick="toggleSalaryPaid(\'' + uname + '\')" style="background:#6366f1;color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">💵 ' + (L?'To\'lash':'Выплатить') + '</button>') +
                         '</div>' +
                         '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;">' +
                             '<div style="background:var(--bg-main);border-radius:8px;padding:8px;text-align:center;">' +
@@ -4631,11 +4965,11 @@
                             '</div>' +
                         '</div>' +
                         '<div class="mob-card-actions">' +
-                            '<button class="btn" style="background:var(--bg-main);color:var(--light);border:1px solid var(--border);" onclick=\'openEditStaff(' + JSON.stringify(w) + ')\'>✏️ Изменить</button>' +
+                            '<button class="btn" style="background:var(--bg-main);color:var(--light);border:1px solid var(--border);" onclick=\'openEditStaff(' + JSON.stringify(w) + ')\'>✏️ ' + (L?'Tahrirlash':'Изменить') + '</button>' +
                             '<button class="btn" style="background:#ef4444;color:#fff;" onclick="deleteStaff(\'' + (w.telegram_username||'') + '\')">🗑️</button>' +
                         '</div>' +
                     '</div>';
-                }).join('') : '<div style="text-align:center;padding:30px;color:var(--light-gray);">Нет сотрудников</div>';
+                }).join('') : '<div style="text-align:center;padding:30px;color:var(--light-gray);">' + (L?"Xodimlar yo'q":'Нет сотрудников') + '</div>';
             }
         }
 
@@ -4945,7 +5279,7 @@
         async function loadServicesFromCloud() {
             if (!_sb) return;
             try {
-                var res = await _sb.rpc('get_services');
+                var res = await _sb.rpc('get_services', { p_token: localStorage.getItem(AUTH_TOKEN_KEY) });
                 if (res.error) throw res.error;
                 var list = res.data || [];
                 if (list.length) {
@@ -4963,6 +5297,28 @@
                     renderServices();
                 }
             } catch(e) { console.error('loadServicesFromCloud:', e); }
+        }
+
+        // Push the admin's branch list to the Supabase `branches` table so the
+        // customer booking app can show them. Runs once on admin load.
+        async function syncBranchesToCloud() {
+            if (!_sb) return;
+            var token = localStorage.getItem(AUTH_TOKEN_KEY);
+            if (!token) return;
+            var locs = (typeof getLocList === 'function') ? getLocList() : [];
+            for (var i = 0; i < locs.length; i++) {
+                var loc = locs[i];
+                try {
+                    await _sb.rpc('admin_save_branch', {
+                        p_token: token, p_id: loc.id, p_name: loc.name,
+                        p_address: loc.address || '', p_phone: loc.phone || '',
+                        p_work_open: loc.work_open || '09:00', p_work_close: loc.work_close || '21:00',
+                        p_active: (loc.status !== 'closed'), p_sort: i,
+                        p_lat: (loc.lat != null ? loc.lat : null), p_lng: (loc.lng != null ? loc.lng : null)
+                    });
+                } catch(e) { /* keep going */ }
+            }
+            console.log('Branches synced to cloud:', locs.length);
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -5042,6 +5398,8 @@
             document.getElementById('locEditId').value  = '';
             document.getElementById('locName').value    = '';
             document.getElementById('locAddress').value = '';
+            document.getElementById('locLat').value     = '';
+            document.getElementById('locLng').value     = '';
             document.getElementById('locPhone').value   = '';
             document.getElementById('locStatus').value  = 'open';
             document.getElementById('locOpen').value    = '09:00';
@@ -5063,6 +5421,8 @@
             document.getElementById('locStatus').value  = loc.status  || 'open';
             document.getElementById('locOpen').value    = loc.work_open  || '09:00';
             document.getElementById('locClose').value   = loc.work_close || '21:00';
+            document.getElementById('locLat').value     = (loc.lat != null ? loc.lat : '');
+            document.getElementById('locLng').value     = (loc.lng != null ? loc.lng : '');
             var t = document.getElementById('locModalTitle');
             if (t) t.textContent = (currentLang === 'uz' ? 'Filialni tahrirlash' : 'Редактировать филиал') + ': ' + loc.name;
             openModal('locationModal');
@@ -5077,19 +5437,26 @@
             var st   = document.getElementById('locStatus').value;
             var wo   = document.getElementById('locOpen').value  || '09:00';
             var wc   = document.getElementById('locClose').value || '21:00';
+            var latRaw = (document.getElementById('locLat').value || '').trim().replace(',', '.');
+            var lngRaw = (document.getElementById('locLng').value || '').trim().replace(',', '.');
+            var lat = latRaw === '' ? null : parseFloat(latRaw);
+            var lng = lngRaw === '' ? null : parseFloat(lngRaw);
+            if ((latRaw !== '' && isNaN(lat)) || (lngRaw !== '' && isNaN(lng))) {
+                showToast(L ? "Koordinatalar noto'g'ri" : 'Неверные координаты', true); return;
+            }
             if (!name) { showToast(L ? 'Filial nomini kiriting!' : 'Введите название!', true); return; }
             var locs = getLocList();
             var savedId = id;
             if (id) {
                 // edit
                 for (var i = 0; i < locs.length; i++) {
-                    if (locs[i].id === id) { locs[i].name = name; locs[i].address = addr; locs[i].phone = ph; locs[i].status = st; locs[i].work_open = wo; locs[i].work_close = wc; break; }
+                    if (locs[i].id === id) { locs[i].name = name; locs[i].address = addr; locs[i].phone = ph; locs[i].status = st; locs[i].work_open = wo; locs[i].work_close = wc; locs[i].lat = lat; locs[i].lng = lng; break; }
                 }
                 showToast(L ? 'Filial yangilandi ✓' : 'Филиал обновлён ✓');
             } else {
                 // add
                 savedId = 'F' + Date.now().toString().slice(-6);
-                locs.push({ id:savedId, name:name, address:addr, phone:ph, status:st, work_open:wo, work_close:wc });
+                locs.push({ id:savedId, name:name, address:addr, phone:ph, status:st, work_open:wo, work_close:wc, lat:lat, lng:lng });
                 showToast(L ? "Filial qo'shildi ✓" : 'Филиал добавлен ✓');
             }
             DB.save('crm_locations', locs);
@@ -5101,7 +5468,8 @@
                 _sb.rpc('admin_save_branch', {
                     p_token: localStorage.getItem(AUTH_TOKEN_KEY),
                     p_id: savedId, p_name: name, p_address: addr, p_phone: ph,
-                    p_work_open: wo, p_work_close: wc, p_active: (st === 'open'), p_sort: 0
+                    p_work_open: wo, p_work_close: wc, p_active: (st === 'open'), p_sort: 0,
+                    p_lat: lat, p_lng: lng
                 }).then(function(r){ if (r && r.error) console.warn('admin_save_branch:', r.error); },
                         function(e){ console.warn('admin_save_branch:', e); });
             }
@@ -5128,6 +5496,19 @@
             updateReports();
         }
 
+        function onRepFromChange() {
+            var repFrom = document.getElementById('repFrom');
+            var repTo   = document.getElementById('repTo');
+            if (repFrom && repTo) {
+                // Keep repTo >= repFrom
+                if (repTo.value && repTo.value < repFrom.value) repTo.value = repFrom.value;
+                repTo.min = repFrom.value || '';
+                // Auto-focus repTo so user picks end date next
+                if (!repTo.value) repTo.focus();
+            }
+            setReportPeriod('custom');
+        }
+
         // Returns {from, to} as YYYY-MM-DD strings for the selected period
         function reportRange() {
             var today = todayTash();
@@ -5150,7 +5531,8 @@
             return { from: today, to: today };  // day
         }
 
-        function updateReports() {
+        function updateReports() { /* unified with updateDashboard — no-op */ }
+        function _updateReports_UNUSED() {
             var bookings = DB.load('crm_bookings', []);
             var payments = DB.load('crm_payments', []);
             var L        = currentLang === 'uz';
@@ -5493,6 +5875,7 @@
             sbLoadAll();
             loadStaff();               // staff list + salaries (admin-only)
             loadServicesFromCloud();   // shared catalog (same as worker app)
+            syncBranchesToCloud();     // push branches so the customer app sees them
             loadPendingBookings();     // customer booking requests
             setInterval(function() { autoUpdateWorkflow(); }, 30000);
             setInterval(function() { loadPendingBookings(); }, 20000);  // poll for new bookings
@@ -5553,6 +5936,51 @@
                 tg.BackButton.hide();
             });
 
+            // ── Multi-business: enter one business / pick among several ──
+            window._enterBusiness = async function(username, bizId, bizName){
+                try {
+                    var sess = await _sb.rpc('admin_session_for_business', { p_username: username, p_business_id: bizId });
+                    if (sess.data && sess.data.token) {
+                        localStorage.setItem(AUTH_TOKEN_KEY, sess.data.token);
+                        localStorage.setItem('lg_admin_biz', bizId);
+                        localStorage.setItem('lg_admin_biz_name', bizName || '');
+                    }
+                    var nd = document.getElementById('adminNameDisplay');
+                    if (nd) {
+                        nd.textContent = (sess.data && sess.data.name) ? sess.data.name : (bizName || 'Admin');
+                        if (window._adminBizList && window._adminBizList.length > 1) {
+                            nd.textContent += ' · ' + (bizName || '') + ' ⇄';
+                            nd.style.cursor = 'pointer';
+                            nd.title = 'Сменить бизнес';
+                            nd.onclick = window._switchBusiness;
+                        }
+                    }
+                    _hideLoginOverlay();
+                    initApp();
+                } catch(e){ console.warn('enterBusiness failed', e); }
+            };
+            window._switchBusiness = function(){
+                if (window._adminBizList && window._adminBizList.length > 1)
+                    window._showBusinessPicker(window._adminUsername, window._adminBizList);
+            };
+            window._showBusinessPicker = function(username, list){
+                document.getElementById('loginOverlay').style.display = 'flex';
+                var st = document.getElementById('stepTelegram'); if (st) st.style.display = 'none';
+                var card = document.querySelector('.login-card');
+                var btns = list.map(function(b){
+                    var nm = (b.name || b.business_id).replace(/'/g, "\\'");
+                    return '<button onclick="_enterBusiness(\'' + username.replace(/'/g,"\\'") + '\',\'' + b.business_id + '\',\'' + nm + '\')" ' +
+                           'style="display:block;width:100%;margin:8px 0;padding:14px;border-radius:12px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:15px;font-weight:600;cursor:pointer;">🏢 ' + (b.name || b.business_id) + '</button>';
+                }).join('');
+                card.innerHTML =
+                    '<div class="login-logo">🚗 LEADGRAM</div>' +
+                    '<div style="margin-top:18px;text-align:center;">' +
+                    '<p style="color:#e2e8f0;font-size:15px;font-weight:700;margin-bottom:6px;">Выберите бизнес</p>' +
+                    '<p style="color:#94a3b8;font-size:12px;margin-bottom:14px;">У вас несколько компаний</p>' +
+                    btns +
+                    '</div>';
+            };
+
             // Override checkAdminSession to use Telegram username auth
             window._tgAdminInit = async function() {
                 _showLoginOverlay();
@@ -5571,27 +5999,20 @@
                     return;
                 }
                 try {
-                    var res = await _sb.rpc('verify_admin_by_telegram', {
-                        p_telegram_username: username
-                    });
-                    if (res.data && res.data.authorized) {
-                        var name = res.data.name || tgUser.first_name || 'Admin';
-                        document.getElementById('adminNameDisplay').textContent = name;
-                        // Mint a real session token so token-gated admin RPCs
-                        // (save_staff, delete_staff, set_salary_paid, …) work.
-                        try {
-                            var sess = await _sb.rpc('admin_session_for_telegram', { p_telegram_username: username });
-                            if (sess.data && sess.data.token) {
-                                localStorage.setItem(AUTH_TOKEN_KEY, sess.data.token);
-                            }
-                        } catch(se) { console.warn('session mint failed:', se); }
-                        // Auto-capture chat id (silent — used only to push booking alerts;
-                        // auth stays username-based). You never type this anywhere.
-                        try {
-                            if (tgUser.id) await _sb.rpc('set_admin_telegram_id', { p_username: username, p_id: tgUser.id });
-                        } catch(ie) {}
-                        _hideLoginOverlay();
-                        initApp();
+                    // Silently capture Telegram id (used to push notifications).
+                    try {
+                        if (tgUser.id) await _sb.rpc('set_admin_telegram_id', { p_username: username, p_id: tgUser.id });
+                    } catch(ie) {}
+                    // Which businesses can this Telegram account open?
+                    var _bl = await _sb.rpc('list_admin_businesses', { p_username: username });
+                    var _bizList = (_bl && Array.isArray(_bl.data)) ? _bl.data : [];
+                    window._adminUsername = username;
+                    window._adminBizList  = _bizList;
+                    if (_bizList.length === 1) {
+                        await window._enterBusiness(username, _bizList[0].business_id, _bizList[0].name);
+                    } else if (_bizList.length > 1) {
+                        // Always let the admin choose which business to open.
+                        window._showBusinessPicker(username, _bizList);
                     } else {
                         // Not in admin_users — show username so it's easy to add
                         document.getElementById('loginOverlay').style.display = 'flex';
@@ -5693,8 +6114,7 @@
 
         // ── Language helper ────────────────────────────────────────────
         function _loginLang() {
-            var sel = document.getElementById('langSelector');
-            return (sel && sel.value === 'uz') ? 'uz' : 'ru';
+            return currentLang === 'uz' ? 'uz' : 'ru';
         }
 
         // ── Telegram Login Widget callback ─────────────────────────────
@@ -5783,6 +6203,16 @@
 
         // ── Logout from Admin Panel ────────────────────────────────────
         async function adminLogout() {
+            // Multi-business admin: "logout" means switch business — show the
+            // picker IN-APP (no Telegram reopen, no cache involved).
+            if (window._adminBizList && window._adminBizList.length > 1 && window._adminUsername) {
+                var _t = localStorage.getItem(AUTH_TOKEN_KEY);
+                if (_t && _sb) { try { await _sb.rpc('logout_admin', { p_token: _t }); } catch(e) {} }
+                localStorage.removeItem(AUTH_TOKEN_KEY);
+                localStorage.removeItem('lg_admin_biz');
+                window._showBusinessPicker(window._adminUsername, window._adminBizList);
+                return;
+            }
             // In Telegram Mini App: native confirm + close the app
             // (auth is by Telegram username, so the only real "logout" is closing it)
             if (IS_TG_MINIAPP && window.Telegram && window.Telegram.WebApp) {
@@ -5853,16 +6283,10 @@
             <span class="tg-nav-icon">🚗</span><span data-ru="Записи" data-uz="Yozuvlar">Записи</span>
         </button>
         <button class="tg-nav-btn" id="tgNav-approvals" onclick="switchTab('approvals')">
-            <span class="tg-nav-icon">🔔</span><span data-ru="Брони" data-uz="Bronlar">Брони</span>
+            <span class="tg-nav-icon" style="position:relative;">🔔<span id="tgApprovalsBadge" style="display:none;position:absolute;top:-4px;right:-10px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:0 5px;">0</span></span><span data-ru="Брони" data-uz="Bronlar">Брони</span>
         </button>
         <button class="tg-nav-btn" id="tgNav-dashboard" onclick="switchTab('dashboard')">
-            <span class="tg-nav-icon">📊</span><span data-ru="Панель" data-uz="Panel">Панель</span>
-        </button>
-        <button class="tg-nav-btn" id="tgNav-reports" onclick="switchTab('reports')">
-            <span class="tg-nav-icon">📈</span><span data-ru="Отчёты" data-uz="Hisobot">Отчёты</span>
-        </button>
-        <button class="tg-nav-btn" id="tgNav-payments" onclick="switchTab('payments')">
-            <span class="tg-nav-icon">💳</span><span data-ru="Платежи" data-uz="To'lov">Платежи</span>
+            <span class="tg-nav-icon">📊</span><span data-ru="Аналитика" data-uz="Tahlil">Аналитика</span>
         </button>
         <button class="tg-nav-btn" id="tgNav-staff" onclick="switchTab('staff')">
             <span class="tg-nav-icon">👷</span><span data-ru="Кадры" data-uz="Xodimlar">Кадры</span>

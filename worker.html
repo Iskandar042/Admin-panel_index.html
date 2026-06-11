@@ -441,6 +441,12 @@ body {
       <button class="toggle-btn"    id="bkfDeclined" onclick="setBkFilter('declined')" style="font-size:13px;padding:8px 12px;">❌ <span id="bkfDeclinedLbl">Отклон.</span></button>
       <button class="toggle-btn"    id="bkfAll"      onclick="setBkFilter('all')"      style="font-size:13px;padding:8px 12px;">📋 <span id="bkfAllLbl">Все</span></button>
     </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">
+      <input type="date" id="bkDateFrom" onchange="renderPendingW()" style="flex:1;min-width:120px;font-size:13px;padding:7px 10px;border-radius:8px;border:1px solid var(--sep);background:#fbfcfe;color:var(--text);">
+      <span style="color:var(--hint);">—</span>
+      <input type="date" id="bkDateTo" onchange="renderPendingW()" style="flex:1;min-width:120px;font-size:13px;padding:7px 10px;border-radius:8px;border:1px solid var(--sep);background:#fbfcfe;color:var(--text);">
+      <button class="toggle-btn" onclick="clearBkDates()" style="font-size:13px;padding:7px 11px;" title="Сбросить даты">✕</button>
+    </div>
     <div id="pendingList"></div>
   </div>
 
@@ -461,9 +467,9 @@ body {
           </select>
           <input class="form-input" id="inputPlate" type="text" autocapitalize="characters"
                  autocomplete="off" spellcheck="false" style="flex:1;"
-                 placeholder="A123AA" oninput="onPlateInput()" maxlength="10">
+                 placeholder="A123AA" oninput="onPlateInput()" maxlength="6">
         </div>
-        <div class="form-hint" id="plateHint">✏️ Регион слева, затем буква-цифры — A123AA</div>
+        <div class="form-hint" id="plateHint" style="display:none;"></div>
 
         <!-- Visual UZ plate display -->
         <div class="plate-uz-wrap" id="plateVisualWrap">
@@ -549,6 +555,40 @@ body {
     </div>
   </div>
 
+  <!-- ── History tab ───────────────────────────────────────────────── -->
+  <div class="page" id="pageHistory">
+    <div class="section-head">
+      <h3 id="historyTitle">📜 История мойки</h3>
+      <button class="refresh-btn" onclick="loadHistory()" title="Обновить">🔄</button>
+    </div>
+    <!-- Filters -->
+    <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+      <input class="form-input" id="histFilterFrom" type="date" style="flex:1;min-width:130px;font-size:14px;padding:9px 10px;" oninput="loadHistory()" title="Дата от">
+      <input class="form-input" id="histFilterTo"   type="date" style="flex:1;min-width:130px;font-size:14px;padding:9px 10px;" oninput="loadHistory()" title="Дата до">
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+      <input class="form-input" id="histFilterPlate"  type="text" placeholder="Номер авто…" autocapitalize="characters" autocomplete="off" spellcheck="false" style="flex:1;min-width:110px;font-size:14px;padding:9px 10px;" oninput="loadHistory()">
+      <select class="form-input" id="histFilterWasher" style="flex:1;min-width:110px;font-size:14px;padding:9px 10px;" onchange="loadHistory()">
+        <option value="">👤 Все мойщики</option>
+      </select>
+    </div>
+    <!-- Type filter: all / booking / walk-in -->
+    <div style="font-size:11px;font-weight:700;color:var(--hint);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;" id="hTypeHdr">Тип записи</div>
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+      <button class="toggle-btn on" id="hTypeAll"     onclick="setHistType('all')"     style="font-size:12px;padding:7px 10px;">📋 <span id="hTypeAllLbl">Все</span></button>
+      <button class="toggle-btn"    id="hTypeBooking" onclick="setHistType('booking')" style="font-size:12px;padding:7px 10px;">📅 <span id="hTypeBookingLbl">Брони</span></button>
+      <button class="toggle-btn"    id="hTypeWalkin"  onclick="setHistType('walkin')"  style="font-size:12px;padding:7px 10px;">🚶 <span id="hTypeWalkinLbl">Без брони</span></button>
+    </div>
+    <!-- Payment filter: all / paid / unpaid -->
+    <div style="font-size:11px;font-weight:700;color:var(--hint);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;border-top:1px solid var(--sep);padding-top:10px;" id="hPayHdr">Статус оплаты</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+      <button class="toggle-btn on" id="hPayAll"    onclick="setHistPay('all')"    style="font-size:12px;padding:7px 10px;">💰 <span id="hPayAllLbl">Все</span></button>
+      <button class="toggle-btn"    id="hPayPaid"   onclick="setHistPay('paid')"   style="font-size:12px;padding:7px 10px;">✅ <span id="hPayPaidLbl">Оплачено</span></button>
+      <button class="toggle-btn"    id="hPayUnpaid" onclick="setHistPay('unpaid')" style="font-size:12px;padding:7px 10px;">⏳ <span id="hPayUnpaidLbl">Не оплачено</span></button>
+    </div>
+    <div id="historyList"><div class="empty"><div class="icon">⏳</div><p>Загрузка…</p></div></div>
+  </div>
+
   <!-- Bottom nav -->
   <nav class="bottom-nav">
     <button class="nav-btn active" id="navQueue" onclick="switchTab('queue')">
@@ -562,6 +602,10 @@ body {
     <button class="nav-btn" id="navAdd" onclick="switchTab('add')">
       <span class="icon">➕</span>
       <span id="navAddLabel">Принять</span>
+    </button>
+    <button class="nav-btn" id="navHistory" onclick="switchTab('history')">
+      <span class="icon">📜</span>
+      <span id="navHistoryLabel">История</span>
     </button>
   </nav>
 </div>
@@ -714,7 +758,7 @@ const SERVICES = {
 // Pull the shared catalog from Supabase; fall back to defaults on error.
 async function loadServices() {
   try {
-    const { data, error } = await sb.rpc('get_services');
+    const { data, error } = await sb.rpc('get_services', { p_username: tgUser?.username });
     if (error) throw error;
     const list = Array.isArray(data) ? data : (data || []);
     if (list.length) {
@@ -801,7 +845,7 @@ const S = {
     selectBrandPlh:'— выберите марку —',
     selectModelPlh:'— выберите модель —',
     otherOption:'Другое',
-    plateHint:'✏️ Без пробелов — например 01A123AA',
+    plateHint:'✏️ Формат: 01A123AA (физ.) или 01123AAA (юр.)',
     lWashTime:'Время мойки', washTimeHint:'🕒 Во сколько начать мойку',
     customSvc:'➕ Другая',
     customSvcName:'Название услуги',
@@ -814,6 +858,9 @@ const S = {
     editedOk:'✅ Запись обновлена',
     notAuth:'⛔ Нет доступа',
     notAuthMsg:'Обратитесь к администратору, чтобы получить доступ к системе.',
+    navHistoryLabel:'История',
+    historyTitle:'📜 История мойки',
+    historyEmpty:'Нет завершённых записей',
   },
   uz: {
     queueTitle:'📋 Navbat', addTitle:'➕ Avto qabul qilish',
@@ -839,7 +886,7 @@ const S = {
     selectBrandPlh:'— marka tanlang —',
     selectModelPlh:'— model tanlang —',
     otherOption:'Boshqa',
-    plateHint:'✏️ Probelsiz — masalan 01A123AA',
+    plateHint:'✏️ Format: 01A123AA (jismoniy) yoki 01123AAA (yuridik)',
     lWashTime:'Yuvish vaqti', washTimeHint:'🕒 Yuvishni necha da boshlash',
     customSvc:'➕ Boshqa',
     customSvcName:'Xizmat nomi',
@@ -852,6 +899,9 @@ const S = {
     editedOk:'✅ Yozuv yangilandi',
     notAuth:"⛔ Ruxsat yo'q",
     notAuthMsg:"Tizimga kirish uchun administrator bilan bog'laning.",
+    navHistoryLabel:'Tarix',
+    historyTitle:'📜 Yuvish tarixi',
+    historyEmpty:'Tugatilgan yozuvlar yo\'q',
   },
 };
 
@@ -909,12 +959,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   await checkWorkerAccess();
 });
 
+// Retry wrapper for transient network failures ("TypeError: Load failed")
+// common in Telegram's mobile WebView / Supabase cold starts.
+async function rpcRetry(fn, tries = 4, delayMs = 250) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try {
+      const res = await fn();
+      if (res && res.error) throw res.error;   // RPC-level error → don't retry blindly
+      return res;
+    } catch (e) {
+      lastErr = e;
+      // Only retry on network-type failures, not logical RPC errors
+      const msg = (e && e.message || '').toLowerCase();
+      const isNetwork = msg.includes('load failed') || msg.includes('failed to fetch') ||
+                        msg.includes('network') || e.name === 'TypeError';
+      if (!isNetwork || i === tries - 1) throw e;
+      await new Promise(r => setTimeout(r, delayMs * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 async function checkWorkerAccess() {
   try {
-    const { data, error } = await sb.rpc('verify_worker', {
+    const { data } = await rpcRetry(() => sb.rpc('verify_worker', {
       p_telegram_username: tgUser.username
-    });
-    if (error) throw error;
+    }));
     if (!data?.authorized) {
       showAuthError(S[lang].notAuth, S[lang].notAuthMsg);
       return;
@@ -949,11 +1020,32 @@ function startApp() {
   // Auth still uses username; you never enter an id by hand.
   try {
     if (tgUser && tgUser.id) {
-      sb.rpc('set_worker_chat_id', { p_username: tgUser.username, p_chat: tgUser.id });
+      sb.rpc('set_worker_chat_id', { p_username: tgUser.username, p_chat: tgUser.id })
+        .then(({ data }) => {
+          // matched===0 → this worker has no DB row linked by username → no alerts
+          if (data && data.matched === 0) {
+            toast(lang==='uz'
+              ? "⚠️ Bildirishnomalar uchun ro'yxatdan o'tmagansiz (username mos emas)"
+              : '⚠️ Вы не подключены к уведомлениям (username не совпадает)', true);
+          }
+        }).catch(()=>{});
     }
   } catch(e) {}
 
   setInterval(loadQueue, 15000);
+  loadWorkersList();
+}
+
+async function loadWorkersList() {
+  try {
+    const { data } = await sb.rpc('get_workers_list', { p_username: tgUser?.username });
+    const list = Array.isArray(data) ? data : [];
+    const sel = document.getElementById('histFilterWasher');
+    if (!sel || !list.length) return;
+    const uz = lang === 'uz';
+    sel.innerHTML = `<option value="">${uz ? '👤 Barcha yuvuvchilar' : '👤 Все мойщики'}</option>` +
+      list.map(w => `<option value="${w.username||w.name}">${w.name}</option>`).join('');
+  } catch(e) { /* silently ignore — worker list is optional */ }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -965,7 +1057,12 @@ function toggleLang() {
   applyLang();
   buildServiceGrid();
   buildBrandSelect();   // refreshes placeholder translations
-  loadQueue();
+  // Re-render every view from cached data so the UI flips instantly,
+  // regardless of which tab is currently open.
+  if (Array.isArray(_lastQueue)) renderQueue(_lastQueue);
+  renderPendingW();
+  loadWorkersList();    // refresh washer dropdown label
+  if (document.getElementById('pageHistory')?.classList.contains('active')) loadHistory();
 }
 
 function applyLang() {
@@ -973,7 +1070,7 @@ function applyLang() {
   const ids = ['queueTitle','addTitle','bookingsTitle','navBookingsLabel','lPlate','lBrand','lModel','lService',
                'lPayType','lPayStatus','lCash','lCard','lUnpaid','lPaid',
                'navQueueLabel','navAddLabel','submitLabel','plateHint',
-               'lWashTime','washTimeHint'];
+               'lWashTime','washTimeHint','navHistoryLabel','historyTitle'];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = L[id] || el.textContent;
@@ -981,13 +1078,36 @@ function applyLang() {
 
   // Plate input placeholder follows language too
   const plateInput = document.getElementById('inputPlate');
-  if (plateInput) plateInput.placeholder = '01A123AA';
+  if (plateInput) plateInput.placeholder = 'A123AA';
 
   // Queue filter labels
+  const uz = lang === 'uz';
   const allLbl  = document.getElementById('filterAllLbl');
   const mineLbl = document.getElementById('filterMineLbl');
-  if (allLbl)  allLbl.textContent  = lang === 'uz' ? 'Barcha' : 'Все';
-  if (mineLbl) mineLbl.textContent = lang === 'uz' ? 'Mening' : 'Мои';
+  if (allLbl)  allLbl.textContent  = uz ? 'Barcha' : 'Все';
+  if (mineLbl) mineLbl.textContent = uz ? 'Mening' : 'Мои';
+
+  // Booking-filter labels
+  const setTxt = (id, ru, uzt) => { const e = document.getElementById(id); if (e) e.textContent = uz ? uzt : ru; };
+  setTxt('bkfNewLbl',      'Новые',   'Yangi');
+  setTxt('bkfApprovedLbl', 'Подтв.',  'Tasdiq.');
+  setTxt('bkfDeclinedLbl', 'Отклон.', 'Rad et.');
+  setTxt('bkfAllLbl',      'Все',     'Barcha');
+  // History type + payment filters
+  setTxt('hTypeAllLbl',     'Все',        'Barcha');
+  setTxt('hTypeBookingLbl', 'Брони',      'Bronlar');
+  setTxt('hTypeWalkinLbl',  'Без брони',  'Bronsiz');
+  setTxt('hPayAllLbl',      'Все',        'Barcha');
+  setTxt('hPayPaidLbl',     'Оплачено',   'To\'langan');
+  setTxt('hPayUnpaidLbl',   'Не оплачено','To\'lanmagan');
+  setTxt('hTypeHdr',        'Тип записи',    'Yozuv turi');
+  setTxt('hPayHdr',         'Статус оплаты', 'To\'lov holati');
+
+  // History filter placeholders
+  const hp = document.getElementById('histFilterPlate');
+  if (hp) hp.placeholder = uz ? 'Avto raqami…' : 'Номер авто…';
+  const hf = document.getElementById('histFilterFrom'); if (hf) hf.title = uz ? 'Sanadan' : 'Дата от';
+  const ht = document.getElementById('histFilterTo');   if (ht) ht.title = uz ? 'Sanagacha' : 'Дата до';
 
   // Update owner type badge text if visible
   const badge = document.getElementById('ownerTypeBadge');
@@ -1011,46 +1131,120 @@ function switchTab(tab) {
     document.getElementById('pageBookings').classList.add('active');
     document.getElementById('navBookings').classList.add('active');
     loadPendingForWorker();
+  } else if (tab === 'history') {
+    document.getElementById('pageHistory').classList.add('active');
+    document.getElementById('navHistory').classList.add('active');
+    const today = new Date().toISOString().slice(0,10);
+    const hf = document.getElementById('histFilterFrom');
+    const ht = document.getElementById('histFilterTo');
+    if (hf && !hf.value) hf.value = today;
+    if (ht && !ht.value) ht.value = today;
+    loadHistory();
   } else {
     document.getElementById('pageAdd').classList.add('active');
     document.getElementById('navAdd').classList.add('active');
+    // Default wash time to the current Tashkent time
+    const wt = document.getElementById('inputWashTime');
+    if (wt && !wt.value) { wt.value = nowTashHHMM(); formState.washTime = wt.value; }
   }
+}
+
+// Current Tashkent (GMT+5) time as "HH:MM", device-timezone independent
+function nowTashHHMM() {
+  const d = new Date(Date.now() + 5 * 60 * 60 * 1000);
+  return String(d.getUTCHours()).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0');
 }
 
 // ═══════════════════════════════════════════════════════════════════
 //   QUEUE
 // ═══════════════════════════════════════════════════════════════════
+let _queueLoading = false;
+let _lastQueueHash = '';
 async function loadQueue() {
+  // Prevent overlapping calls from stacking up on slow networks (perf)
+  if (_queueLoading) return;
+  _queueLoading = true;
   const container = document.getElementById('queueList');
   try {
-    const { data, error } = await sb.rpc('get_queue_for_worker', {
+    const { data, error } = await rpcRetry(() => sb.rpc('get_queue_for_worker', {
       p_telegram_username: tgUser.username
-    });
+    }));
     if (error) throw error;
     _lastQueue = Array.isArray(data) ? data : (data || []);
-    renderQueue(_lastQueue);
+    // Skip the expensive re-render (rebuilds all cards + images) when the
+    // queue hasn't actually changed — avoids periodic flicker/jank.
+    const hash = JSON.stringify(_lastQueue.map(b => [b.id, b.workflow_status, b.payment_status, b.plate, b.amount, b.comment, b.photo_url ? 1 : 0, b.wash_started_at, b.wash_finished_at]));
+    if (hash !== _lastQueueHash) {
+      _lastQueueHash = hash;
+      renderQueue(_lastQueue);
+    }
   } catch(e) {
     container.innerHTML = `<div class="empty"><p>❌ ${e.message}</p></div>`;
+  } finally {
+    _queueLoading = false;
   }
   loadPendingForWorker();
 }
 
 // ── Pending customer bookings (approve/decline from the worker app) ──
 let _pendingW = [];
+// Bucket helpers — every customer booking is exactly ONE of new / confirmed /
+// canceled, so the tab counts always add up to "Все".
+//   new       = pending (awaiting decision)
+//   confirmed = approved or arrived (worker confirmed; car may already be here)
+//   canceled  = declined / cancelled
+// "confirmed" is the catch-all so no status is ever left uncounted.
+const BK_CANCELED = ['declined','cancelled','canceled'];
+function bkIsNew(b){ return (b.status||'pending')==='pending'; }
+function bkIsCanceled(b){ return BK_CANCELED.includes(b.status); }
+function bkIsConfirmed(b){ return !bkIsNew(b) && !bkIsCanceled(b); }
 async function loadPendingForWorker() {
   try {
-    const { data } = await sb.rpc('get_pending_bookings');
+    const { data } = await sb.rpc('get_pending_bookings', { p_username: tgUser?.username });
     _pendingW = Array.isArray(data) ? data : [];
   } catch(e) { _pendingW = []; }
   renderPendingW();
 }
 function updateBookingsBadge() {
   const badge = document.getElementById('bookingsBadge');
-  if (badge) {
-    const newCount = _pendingW.filter(b => (b.status||'pending')==='pending').length;
-    badge.textContent = newCount;
-    badge.style.display = newCount ? 'inline-block' : 'none';
-  }
+  if (!badge) return;
+  // The bell stays lit while there is ANY booking the worker should still mind:
+  //   • new (pending)  → needs a decision  → red (urgent)
+  //   • approved       → confirmed, car not here yet → green (just a reminder)
+  // Arrived cars are already visible in the queue, so they don't light the bell.
+  const newCount  = _pendingW.filter(bkIsNew).length;
+  const waitCount = _pendingW.filter(b => b.status === 'approved').length;
+  const total = newCount + waitCount;
+  badge.textContent = total;
+  badge.style.display = total ? 'inline-block' : 'none';
+  badge.style.background = newCount ? '#ef4444' : '#10b981';
+}
+// Show how many bookings fall under each filter, right on the tab labels.
+function updateBkCounts() {
+  const uz = lang==='uz';
+  const dFrom = (document.getElementById('bkDateFrom')?.value || '').trim();
+  const dTo   = (document.getElementById('bkDateTo')?.value   || '').trim();
+  const inRange = b => {
+    const d = b.req_date || (b.created_at ? String(b.created_at).slice(0,10) : '');
+    if(dFrom && d && d < dFrom) return false;
+    if(dTo   && d && d > dTo)   return false;
+    return true;
+  };
+  const pool = _pendingW.filter(inRange);
+  const cNew = pool.filter(bkIsNew).length;
+  const cApp = pool.filter(bkIsConfirmed).length;
+  const cDec = pool.filter(bkIsCanceled).length;
+  const cAll = pool.length;
+  const set = (id, base, n) => { const e=document.getElementById(id); if(e) e.textContent = base + (n ? ' ('+n+')' : ''); };
+  set('bkfNewLbl',      uz?'Yangi':'Новые',    cNew);
+  set('bkfApprovedLbl', uz?'Tasdiq.':'Подтв.', cApp);
+  set('bkfDeclinedLbl', uz?'Rad et.':'Отклон.',cDec);
+  set('bkfAllLbl',      uz?'Barcha':'Все',     cAll);
+}
+function clearBkDates() {
+  const f=document.getElementById('bkDateFrom'); if(f) f.value='';
+  const t=document.getElementById('bkDateTo');   if(t) t.value='';
+  renderPendingW();
 }
 let _bkFilter = 'new';
 function setBkFilter(f) {
@@ -1063,14 +1257,20 @@ function setBkFilter(f) {
 }
 function renderPendingW() {
   updateBookingsBadge();
+  updateBkCounts();
   const box = document.getElementById('pendingList');
   if (!box) return;
   const uz = lang==='uz';
+  const dFrom = (document.getElementById('bkDateFrom')?.value || '').trim();
+  const dTo   = (document.getElementById('bkDateTo')?.value   || '').trim();
   const filtered = _pendingW.filter(b=>{
-    const s=b.status||'pending';
-    if(_bkFilter==='new') return s==='pending';
-    if(_bkFilter==='approved') return s==='approved';
-    if(_bkFilter==='declined') return s==='declined';
+    // Date range — match on the requested booking date (fallback to created day)
+    const d = b.req_date || (b.created_at ? String(b.created_at).slice(0,10) : '');
+    if(dFrom && d && d < dFrom) return false;
+    if(dTo   && d && d > dTo)   return false;
+    if(_bkFilter==='new') return bkIsNew(b);
+    if(_bkFilter==='approved') return bkIsConfirmed(b);
+    if(_bkFilter==='declined') return bkIsCanceled(b);
     return true;
   });
   if (!filtered.length) {
@@ -1082,15 +1282,19 @@ function renderPendingW() {
       const phone = (b.phone||'').replace(/[^\d+]/g,'');
       const st = b.status || 'pending';
       const approved = st === 'approved';
-      const declined = st === 'declined';
-      const stripe = declined ? '#ef4444' : approved ? '#10b981' : '#f59e0b';
+      const declined = bkIsCanceled(b);
+      const arrived  = st === 'arrived';   // confirmed + car already here (in the queue)
+      const stripe = declined ? '#ef4444' : (approved||arrived) ? '#10b981' : '#f59e0b';
       const statusBadge = declined
         ? `<span class="badge badge-unpaid">❌ ${uz?'Rad etilgan':'Отклонён'}</span>`
+        : arrived
+        ? `<span class="badge badge-queue">🚗 ${uz?'Keldi · navbatda':'Прибыл · в очереди'}</span>`
         : approved
         ? `<span class="badge badge-paid">✅ ${uz?'Tasdiqlangan':'Подтверждено'}</span>`
         : `<span class="badge badge-pending">⏳ ${uz?'Kutilmoqda':'Ожидает'}</span>`;
-      // pending → approve/decline; approved → "car arrived" + cancel; declined → nothing
-      const decideRow = declined
+      // pending → approve/decline; approved → "car arrived" + cancel;
+      // arrived → already in the queue (no decision buttons); declined → nothing
+      const decideRow = (declined || arrived)
         ? ''
         : approved
         ? `<div class="actions">
@@ -1112,7 +1316,7 @@ function renderPendingW() {
           <span>💰 <strong>${(b.amount||0).toLocaleString('ru-RU')} ${uz?"so'm":'сум'}</strong></span>
           <span>🗓️ <strong>${b.req_date||''} ${b.req_time||''}</strong></span>
         </div>
-        ${b.phone?`<button class="btn btn-primary" style="width:100%;margin-top:10px;" onclick="callPhone('${phone}')">📞 ${uz?'Qo\'ng\'iroq':'Позвонить'}: ${b.phone}</button>`:''}
+        ${b.phone?`<a class="btn btn-primary" href="tel:${phone}" onclick="copyPhone('${phone}')" style="width:100%;margin-top:10px;display:flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box;">📞 ${uz?'Qo\'ng\'iroq':'Позвонить'}: ${b.phone}</a>`:''}
         ${b.comment?`<div style="background:#eff4ff;border-radius:10px;padding:8px 12px;margin-top:8px;font-size:13px;">💬 ${b.comment}</div>`:''}
         ${decideRow}
         <div class="actions">
@@ -1149,7 +1353,7 @@ function openDetail(id) {
     row('⏱',uz?'Davomiyligi':'Длительность', dur) +
     row('📞',uz?'Telefon':'Телефон', b.phone) +
     row('💬',uz?'Izoh':'Комментарий', b.comment) +
-    (b.phone?`<button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="callPhone('${(b.phone||'').replace(/[^\d+]/g,'')}')">📞 ${uz?'Qo\'ng\'iroq':'Позвонить'}</button>`:'');
+    (b.phone?`<a class="btn btn-primary" href="tel:${(b.phone||'').replace(/[^\d+]/g,'')}" onclick="copyPhone('${(b.phone||'').replace(/[^\d+]/g,'')}')" style="width:100%;margin-top:12px;display:flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box;">📞 ${uz?'Qo\'ng\'iroq':'Позвонить'}</a>`:'');
   document.getElementById('detailModal').style.display='flex';
 }
 function closeDetail(){ document.getElementById('detailModal').style.display='none'; }
@@ -1164,7 +1368,7 @@ async function checkinW(id) {
 }
 async function approveW(id) {
   try {
-    const { error } = await sb.rpc('set_booking_status', { p_id:id, p_status:'approved', p_reason:'' });
+    const { error } = await sb.rpc('set_booking_status', { p_id:id, p_status:'approved', p_reason:'', p_by:'worker' });
     if (error) throw error;
     toast(lang==='uz'?'Tasdiqlandi ✓':'Подтверждено ✓');
     loadPendingForWorker();
@@ -1175,7 +1379,7 @@ async function declineW(id) {
   const reason = await askText(lang==='uz'?'Sababi (ixtiyoriy):':'Причина отказа (необязательно):', '');
   if (reason === null) return;
   try {
-    const { error } = await sb.rpc('set_booking_status', { p_id:id, p_status:'declined', p_reason:reason||'' });
+    const { error } = await sb.rpc('set_booking_status', { p_id:id, p_status:'declined', p_reason:reason||'', p_by:'worker' });
     if (error) throw error;
     toast(lang==='uz'?'Rad etildi':'Отклонено');
     loadPendingForWorker();
@@ -1241,7 +1445,7 @@ function renderQueue(queue) {
   const allLbl  = document.getElementById('filterAllLbl');
   const mineLbl = document.getElementById('filterMineLbl');
   const me = (workerInfo?.username || tgUser?.username || '').toLowerCase();
-  const mineCount = queue.filter(b => (b.washed_by||'').toLowerCase()===me||(b.added_by||'').toLowerCase()===me).length;
+  const mineCount = queue.filter(b => (b.washed_by||'').toLowerCase()===me).length;
   if (allLbl)  allLbl.textContent  = (lang==='uz'?'Barcha':'Все') + ' (' + queue.length + ')';
   if (mineLbl) mineLbl.textContent = (lang==='uz'?'Mening':'Мои') + ' (' + mineCount + ')';
 
@@ -1311,6 +1515,12 @@ function buildCarCard(b) {
     ? `<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">🕒 ${b.wash_time}</span>`
     : '';
 
+  // Record created_at time
+  const createdTime = b.created_at ? tashTimeStr(b.created_at) : '';
+  const createdDisplay = createdTime
+    ? `<span style="background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">📝 ${createdTime}</span>`
+    : '';
+
   // Photo — prefer Supabase URL stored in booking, fall back to local cache
   const photoUrl = b.photo_url || localStorage.getItem('photo_' + b.id) || '';
   const hasPhoto = !!photoUrl;
@@ -1327,6 +1537,11 @@ function buildCarCard(b) {
   }
   if (py !== 'paid') {
     actions += `<button class="btn btn-pay" onclick="markPaid('${b.id}')">${L.markPaid}</button>`;
+  }
+  // Call the customer directly (real tel: link so a tap opens the dialer)
+  if (b.phone) {
+    const pnum = String(b.phone).replace(/[^\d+]/g,'');
+    actions += `<a class="btn btn-outline" href="tel:${pnum}" onclick="copyPhone('${pnum}')" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;">📞</a>`;
   }
   // Edit is always available (incl. after the wash is done)
   actions += `<button class="btn btn-outline" onclick='openEdit(${JSON.stringify(b)})'>${L.editBtn}</button>`;
@@ -1355,8 +1570,9 @@ function buildCarCard(b) {
         <span>💰 <strong>${amtFmt}</strong></span>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">
-        ${payTypeLabel}${washTimeDisplay}${photoTag}
+        ${payTypeLabel}${photoTag}
       </div>
+      ${timeTimeline(b)}
       ${b.comment ? `<div style="background:#eff4ff;border-radius:10px;padding:8px 12px;margin-top:8px;font-size:13px;">💬 ${b.comment}</div>` : ''}
       ${photoSection}
       ${actions ? `<div class="actions">${actions}</div>` : ''}
@@ -1416,7 +1632,7 @@ function setQueueFilter(f) {
 function applyQueueFilter(queue) {
   if (_queueFilter === 'mine') {
     const me = (workerInfo?.username || tgUser?.username || '').toLowerCase();
-    return queue.filter(b => (b.washed_by || '').toLowerCase() === me || (b.added_by || '').toLowerCase() === me);
+    return queue.filter(b => (b.washed_by || '').toLowerCase() === me);
   }
   return queue;
 }
@@ -1770,13 +1986,19 @@ async function saveEdit() {
 // ═══════════════════════════════════════════════════════════════════
 //   PLATE INPUT & VISUAL DISPLAY
 // ═══════════════════════════════════════════════════════════════════
+// Build the full normalized plate from the region dropdown + the body field.
+// The body field holds ONLY the 6-char body: "A123AA" (individual) or
+// "123AAA" (legal). The region (01, 10, …) always comes from the dropdown.
+function buildFullPlate() {
+  const region = (document.getElementById('plateRegion') ? document.getElementById('plateRegion').value : '') || '01';
+  const rest   = (document.getElementById('inputPlate').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  // If the user pasted/typed the whole plate (region included) in the body
+  // field, accept it as-is; otherwise prepend the dropdown region.
+  return normalizePlate(rest) || normalizePlate(region + rest);
+}
+
 function onPlateInput() {
-  const region     = (document.getElementById('plateRegion') ? document.getElementById('plateRegion').value : '') || '';
-  const rest       = document.getElementById('inputPlate').value;
-  // If the user typed the FULL plate (incl. region) in the field, use it as-is.
-  // Otherwise prepend the region from the dropdown.
-  let raw = normalizePlate(rest) ? rest : (region + rest);
-  const normalized = normalizePlate(raw);
+  const normalized = buildFullPlate();
   const wrap       = document.getElementById('plateVisualWrap');
   const vizText    = document.getElementById('plateVisualText');
 
@@ -1828,27 +2050,18 @@ function renderOwnerBadge(ownerType) {
 
 // ─── Normalise plate ───────────────────────────────────────────────
 function normalizePlate(raw) {
-  let s = raw.toUpperCase().replace(/[|\-]/g, ' ').replace(/\s+/g, ' ').trim();
+  // Strict: only two valid UZ plate formats are accepted.
+  // Individual: 2 digits + 1 letter + 3 digits + 2 letters  →  01 A 123 AA
+  // Legal-entity: 2 digits + 3 digits + 3 letters           →  01 123 AAA
+  const s = raw.toUpperCase().replace(/[|\-\s]/g, '');
 
-  // ── Individual plates ──────────────────────────────────────────
-  // Already spaced: "01 A 123 AA"
-  let m = s.match(/^(\d{2})\s+([A-Z])\s+(\d{3})\s+([A-Z]{2})$/);
+  let m = s.match(/^(\d{2})([A-Z])(\d{3})([A-Z]{2})$/);
   if (m) return `${m[1]} | ${m[2]} ${m[3]} ${m[4]}`;
 
-  // Compact: "01A123AA"
-  m = s.replace(/\s/g,'').match(/^(\d{2})([A-Z])(\d{3})([A-Z]{2})$/);
-  if (m) return `${m[1]} | ${m[2]} ${m[3]} ${m[4]}`;
-
-  // ── Legal-entity plates ────────────────────────────────────────
-  // Already spaced: "01 123 AAA"
-  m = s.match(/^(\d{2})\s+(\d{3})\s+([A-Z]{3})$/);
+  m = s.match(/^(\d{2})(\d{3})([A-Z]{3})$/);
   if (m) return `${m[1]} | ${m[2]} ${m[3]}`;
 
-  // Compact: "01123AAA"
-  m = s.replace(/\s/g,'').match(/^(\d{2})(\d{3})([A-Z]{3})$/);
-  if (m) return `${m[1]} | ${m[2]} ${m[3]}`;
-
-  return s.length >= 6 ? s : '';
+  return ''; // invalid format → empty (submit will show error)
 }
 
 // ─── Loyalty lookup ────────────────────────────────────────────────
@@ -2017,7 +2230,7 @@ function setPayStatus(status) {
 //   SUBMIT
 // ═══════════════════════════════════════════════════════════════════
 async function submitCar() {
-  const plate  = formState.plate || normalizePlate(document.getElementById('inputPlate').value);
+  const plate  = formState.plate || buildFullPlate();
   const svcKey = formState.serviceKey;
 
   if (!plate)  { toast(S[lang].invalidPlate, true); return; }
@@ -2109,6 +2322,230 @@ function resetForm() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+//   HISTORY
+// ═══════════════════════════════════════════════════════════════════
+function normPlateStr(s) { return String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,''); }
+
+let _histType = 'all';   // all | booking | walkin
+let _histPay  = 'all';   // all | paid | unpaid
+function setHistType(t) {
+  _histType = t;
+  ['All','Booking','Walkin'].forEach(k => {
+    const el = document.getElementById('hType' + k);
+    if (el) el.classList.toggle('on', k.toLowerCase() === t);
+  });
+  loadHistory();
+}
+function setHistPay(p) {
+  _histPay = p;
+  ['All','Paid','Unpaid'].forEach(k => {
+    const el = document.getElementById('hPay' + k);
+    if (el) el.classList.toggle('on', k.toLowerCase() === p);
+  });
+  loadHistory();
+}
+
+async function loadHistory() {
+  const box = document.getElementById('historyList');
+  const fromFilter   = (document.getElementById('histFilterFrom')?.value   || '').trim();
+  const toFilter     = (document.getElementById('histFilterTo')?.value     || '').trim();
+  const plateFilter  = normPlateStr(document.getElementById('histFilterPlate')?.value  || '');
+  const washerFilter = (document.getElementById('histFilterWasher')?.value || '').trim().toLowerCase();
+
+  box.innerHTML = `<div class="empty"><div class="icon">⏳</div><p>${S[lang].loading}</p></div>`;
+  try {
+    // Use a SECURITY DEFINER RPC — a direct table read is blocked by RLS for
+    // the anon key, which is why finished cars never appeared here before.
+    const { data, error } = await rpcRetry(() => sb.rpc('get_finished_bookings', {
+      p_telegram_username: tgUser.username,
+      p_from: fromFilter || null,
+      p_to:   toFilter   || null
+    }));
+    if (error) throw error;
+    if (data && data.error) throw new Error(data.error);
+    let list = Array.isArray(data) ? data : [];
+
+    // Client-side plate filter (normalize both sides so "01a333dd" matches "01 | A 333 DD")
+    if (plateFilter) {
+      list = list.filter(b => normPlateStr(b.plate).includes(plateFilter));
+    }
+    if (washerFilter) {
+      list = list.filter(b => (b.washed_by||'').toLowerCase().includes(washerFilter));
+    }
+    // Type filter (booking vs walk-in)
+    if (_histType === 'booking') {
+      list = list.filter(b => b.source === 'customer' || (b.req_date && b.req_time));
+    } else if (_histType === 'walkin') {
+      list = list.filter(b => !(b.source === 'customer' || (b.req_date && b.req_time)));
+    }
+    // Payment filter
+    if (_histPay === 'paid')   list = list.filter(b => b.payment_status === 'paid');
+    if (_histPay === 'unpaid') list = list.filter(b => b.payment_status !== 'paid');
+    renderHistory(list);
+  } catch(e) {
+    box.innerHTML = `<div class="empty"><p>❌ ${e.message}</p></div>`;
+  }
+}
+
+function renderHistory(list) {
+  const box = document.getElementById('historyList');
+  const L   = S[lang];
+  const uz  = lang === 'uz';
+  const unit = uz ? "so'm" : 'сум';
+
+  if (!list.length) {
+    box.innerHTML = `<div class="empty"><div class="icon">🗒️</div><p>${L.historyEmpty}</p></div>`;
+    return;
+  }
+
+  // Group by date
+  const groups = {};
+  list.forEach(b => {
+    const d = b.created_at ? tashDateStr(b.created_at) : '—';
+    if (!groups[d]) groups[d] = [];
+    groups[d].push(b);
+  });
+
+  let html = '';
+  for (const [date, items] of Object.entries(groups)) {
+    const totalAmt = items.reduce((s, b) => s + (b.amount || 0), 0);
+    html += `<div style="font-size:13px;font-weight:700;color:var(--hint);padding:8px 2px 4px;">${date} · ${items.length} ${uz?'mashina':'машин'} · ${totalAmt.toLocaleString('ru-RU')} ${unit}</div>`;
+    items.forEach(b => {
+      const svcName = SERVICES[b.service]?.[uz?'uz':'ru'] || b.service_name || b.service || '—';
+      const timeStr = b.created_at ? tashTimeStr(b.created_at) : '';
+      const washTime = b.wash_time ? ` · 🕒 ${b.wash_time}` : '';
+      const brandModel = [b.brand, b.model].filter(Boolean).join(' ');
+      const washerName = b.washed_by || '';
+      const payType = b.payment_type === 'card'
+        ? `<span style="background:#ede9fe;color:#6d28d9;padding:2px 7px;border-radius:8px;font-size:11px;font-weight:600;">💳 ${uz?'Karta':'Карта'}</span>`
+        : `<span style="background:#dcfce7;color:#166534;padding:2px 7px;border-radius:8px;font-size:11px;font-weight:600;">💵 ${uz?'Naqd':'Нал'}</span>`;
+      const isPaid = b.payment_status === 'paid';
+      // Single payment button: "Не оплачено" (tap to pay) or "✅ Оплачено + lock to reverse"
+      const payBtn = isPaid
+        ? `<div style="display:flex;gap:6px;align-items:center;margin-top:8px;">
+             <span style="flex:1;text-align:center;background:#d1fae5;color:#065f46;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:700;">✅ ${uz?'To\'langan':'Оплачено'}</span>
+             <button onclick="histCancelPay('${b.id}')" style="background:none;border:1.5px solid #e2e8f0;color:#94a3b8;border-radius:10px;padding:9px 12px;font-size:13px;cursor:pointer;" title="${uz?'Bekor qilish':'Отменить оплату'}">🔓</button>
+           </div>`
+        : `<button onclick="histTogglePay('${b.id}','paid')" style="width:100%;margin-top:8px;background:#f59e0b;border:none;color:#fff;border-radius:10px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;">
+             💳 ${uz?'To\'lanmagan — statusni o\'zgartirish uchun bosing':'Не оплачено — нажмите чтобы отметить'}
+           </button>`;
+      html += `<div class="card" id="hcard-${b.id}" style="border-left:4px solid ${isPaid?'#10b981':'#f59e0b'};">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="plate">${(b.plate||'').replace(' | ',' ')}</span>
+          <span style="font-size:13px;font-weight:700;color:var(--hint);">📝 ${timeStr}${washTime}</span>
+        </div>
+        <div class="car-meta" style="margin-top:6px;">
+          ${brandModel ? `<span>🚙 <strong>${brandModel}</strong></span>` : ''}
+          <span>🧼 <strong>${svcName}</strong></span>
+          <span>💰 <strong>${(b.amount||0).toLocaleString('ru-RU')} ${unit}</strong></span>
+          ${b.branch ? `<span>📍 <strong>${b.branch}</strong></span>` : ''}
+          ${washerName ? `<span>👤 <strong>${washerName}</strong></span>` : ''}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">${payType}</div>
+        ${timeTimeline(b)}
+        ${payBtn}
+        ${b.comment ? `<div style="background:#eff4ff;border-radius:10px;padding:7px 11px;margin-top:7px;font-size:13px;">💬 ${b.comment}</div>` : ''}
+      </div>`;
+    });
+  }
+  box.innerHTML = html;
+}
+
+async function histTogglePay(bookingId, newStatus) {
+  try {
+    const { error } = await sb.rpc('worker_update_booking', {
+      p_telegram_username: tgUser.username,
+      p_booking_id:        bookingId,
+      p_workflow_status:   null,
+      p_payment_status:    newStatus,
+    });
+    if (error) throw error;
+    toast(S[lang].updOk);
+    loadHistory();
+  } catch(e) {
+    toast(S[lang].updErr + ': ' + e.message, true);
+  }
+}
+
+async function histCancelPay(bookingId) {
+  const uz = lang === 'uz';
+  const pass = await askText(
+    uz ? 'Parol (bekor qilish uchun):' : 'Пароль для отмены оплаты:', '', {password: true}
+  );
+  if (pass === null) return;
+  try {
+    const v = await sb.rpc('verify_delete_password', { p_password: (pass||'').trim() });
+    if (v.error || !(v.data && v.data.ok === true)) {
+      toast(uz ? "Noto'g'ri parol" : 'Неверный пароль', true);
+      return;
+    }
+    await histTogglePay(bookingId, 'not-paid');
+  } catch(e) {
+    toast(S[lang].updErr + ': ' + e.message, true);
+  }
+}
+
+// ── Tashkent time helpers (always GMT+5, device-timezone independent) ──
+// Parse a Supabase timestamp as UTC even if it lacks a 'Z'/offset suffix.
+function _parseUTC(s) {
+  if (!s) return null;
+  if (s instanceof Date) return s;
+  s = String(s).trim().replace(' ', 'T');
+  // If there's no timezone designator, treat the value as UTC.
+  if (!/[zZ]$|[+\-]\d{2}:?\d{2}$/.test(s)) s += 'Z';
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+function tashDate(utcStr) {
+  const d = _parseUTC(utcStr);
+  return d ? new Date(d.getTime() + 5 * 60 * 60 * 1000) : null;  // shift to GMT+5
+}
+function tashTimeStr(utcStr) {
+  const d = tashDate(utcStr);
+  if (!d) return '';
+  return String(d.getUTCHours()).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0');
+}
+function tashDateStr(utcStr) {
+  const d = tashDate(utcStr);
+  if (!d) return '—';
+  return String(d.getUTCDate()).padStart(2,'0') + '.' +
+         String(d.getUTCMonth()+1).padStart(2,'0') + '.' +
+         d.getUTCFullYear();
+}
+
+// Professional time timeline shown on each car card.
+// Booking → booking time / start / end.  Walk-in → accepted / start / end.
+function timeTimeline(b) {
+  const uz = lang === 'uz';
+  const isBooking = b.source === 'customer' || (b.req_date && b.req_time);
+  const start = b.wash_started_at ? tashTimeStr(b.wash_started_at) : null;
+  const end   = b.wash_finished_at ? tashTimeStr(b.wash_finished_at) : null;
+
+  // Estimated end while washing: start + service duration
+  let estEnd = null;
+  if (start && !end && b.wash_started_at) {
+    const dur = (SERVICES[b.service]?.dur) || 30;
+    const startMs = _parseUTC(b.wash_started_at)?.getTime();
+    if (startMs) estEnd = tashTimeStr(new Date(startMs + dur * 60000));
+  }
+
+  const chip = (ic, label, val, color) =>
+    `<span style="display:inline-flex;align-items:center;gap:3px;background:${color||'#f1f5f9'};color:#334155;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600;">${ic} ${label}: <strong>${val}</strong></span>`;
+
+  let chips = '';
+  if (isBooking) {
+    chips += chip('📅', uz?'Bron':'Бронь', `${b.req_date||''} ${b.req_time||''}`.trim()||'—', '#dbeafe');
+  } else {
+    chips += chip('📝', uz?'Qabul':'Принят', b.created_at?tashTimeStr(b.created_at):'—', '#f1f5f9');
+  }
+  if (start) chips += chip('▶️', uz?'Boshlandi':'Начало', start, '#fff7ed');
+  if (end)        chips += chip('⏹', uz?'Tugadi':'Конец', end, '#dcfce7');
+  else if (estEnd) chips += chip('⏱', uz?'Taxminan':'~оконч.', estEnd, '#fef9c3');
+
+  return `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">${chips}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 //   TOAST
 // ═══════════════════════════════════════════════════════════════════
 let _toastTimer = null;
@@ -2177,6 +2614,15 @@ function callPhone(phone) {
     document.body.appendChild(a); a.click(); a.remove();
   } catch(e) {}
   try { window.location.href = 'tel:' + num; } catch(e) {}
+  toast((lang==='uz'?'📋 Raqam nusxalandi: ':'📋 Номер скопирован: ') + num);
+}
+// The call buttons are real <a href="tel:"> anchors so a genuine user tap
+// opens the dialer (Telegram blocks programmatic tel: navigation). This only
+// copies the number to the clipboard as a backup — the dial is the anchor's job.
+function copyPhone(phone) {
+  const num = String(phone||'').replace(/[^\d+]/g,'');
+  if (!num) return;
+  try { navigator.clipboard && navigator.clipboard.writeText(num); } catch(e){}
   toast((lang==='uz'?'📋 Raqam nusxalandi: ':'📋 Номер скопирован: ') + num);
 }
 </script>
