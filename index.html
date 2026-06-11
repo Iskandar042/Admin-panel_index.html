@@ -5922,6 +5922,51 @@
                 tg.BackButton.hide();
             });
 
+            // ── Multi-business: enter one business / pick among several ──
+            window._enterBusiness = async function(username, bizId, bizName){
+                try {
+                    var sess = await _sb.rpc('admin_session_for_business', { p_username: username, p_business_id: bizId });
+                    if (sess.data && sess.data.token) {
+                        localStorage.setItem(AUTH_TOKEN_KEY, sess.data.token);
+                        localStorage.setItem('lg_admin_biz', bizId);
+                        localStorage.setItem('lg_admin_biz_name', bizName || '');
+                    }
+                    var nd = document.getElementById('adminNameDisplay');
+                    if (nd) {
+                        nd.textContent = (sess.data && sess.data.name) ? sess.data.name : (bizName || 'Admin');
+                        if (window._adminBizList && window._adminBizList.length > 1) {
+                            nd.textContent += ' · ' + (bizName || '') + ' ⇄';
+                            nd.style.cursor = 'pointer';
+                            nd.title = 'Сменить бизнес';
+                            nd.onclick = window._switchBusiness;
+                        }
+                    }
+                    _hideLoginOverlay();
+                    initApp();
+                } catch(e){ console.warn('enterBusiness failed', e); }
+            };
+            window._switchBusiness = function(){
+                if (window._adminBizList && window._adminBizList.length > 1)
+                    window._showBusinessPicker(window._adminUsername, window._adminBizList);
+            };
+            window._showBusinessPicker = function(username, list){
+                document.getElementById('loginOverlay').style.display = 'flex';
+                var st = document.getElementById('stepTelegram'); if (st) st.style.display = 'none';
+                var card = document.querySelector('.login-card');
+                var btns = list.map(function(b){
+                    var nm = (b.name || b.business_id).replace(/'/g, "\\'");
+                    return '<button onclick="_enterBusiness(\'' + username.replace(/'/g,"\\'") + '\',\'' + b.business_id + '\',\'' + nm + '\')" ' +
+                           'style="display:block;width:100%;margin:8px 0;padding:14px;border-radius:12px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:15px;font-weight:600;cursor:pointer;">🏢 ' + (b.name || b.business_id) + '</button>';
+                }).join('');
+                card.innerHTML =
+                    '<div class="login-logo">🚗 LEADGRAM</div>' +
+                    '<div style="margin-top:18px;text-align:center;">' +
+                    '<p style="color:#e2e8f0;font-size:15px;font-weight:700;margin-bottom:6px;">Выберите бизнес</p>' +
+                    '<p style="color:#94a3b8;font-size:12px;margin-bottom:14px;">У вас несколько компаний</p>' +
+                    btns +
+                    '</div>';
+            };
+
             // Override checkAdminSession to use Telegram username auth
             window._tgAdminInit = async function() {
                 _showLoginOverlay();
@@ -5940,27 +5985,23 @@
                     return;
                 }
                 try {
-                    var res = await _sb.rpc('verify_admin_by_telegram', {
-                        p_telegram_username: username
-                    });
-                    if (res.data && res.data.authorized) {
-                        var name = res.data.name || tgUser.first_name || 'Admin';
-                        document.getElementById('adminNameDisplay').textContent = name;
-                        // Mint a real session token so token-gated admin RPCs
-                        // (save_staff, delete_staff, set_salary_paid, …) work.
-                        try {
-                            var sess = await _sb.rpc('admin_session_for_telegram', { p_telegram_username: username });
-                            if (sess.data && sess.data.token) {
-                                localStorage.setItem(AUTH_TOKEN_KEY, sess.data.token);
-                            }
-                        } catch(se) { console.warn('session mint failed:', se); }
-                        // Auto-capture chat id (silent — used only to push booking alerts;
-                        // auth stays username-based). You never type this anywhere.
-                        try {
-                            if (tgUser.id) await _sb.rpc('set_admin_telegram_id', { p_username: username, p_id: tgUser.id });
-                        } catch(ie) {}
-                        _hideLoginOverlay();
-                        initApp();
+                    // Silently capture Telegram id (used to push notifications).
+                    try {
+                        if (tgUser.id) await _sb.rpc('set_admin_telegram_id', { p_username: username, p_id: tgUser.id });
+                    } catch(ie) {}
+                    // Which businesses can this Telegram account open?
+                    var _bl = await _sb.rpc('list_admin_businesses', { p_username: username });
+                    var _bizList = (_bl && Array.isArray(_bl.data)) ? _bl.data : [];
+                    window._adminUsername = username;
+                    window._adminBizList  = _bizList;
+                    if (_bizList.length === 1) {
+                        await window._enterBusiness(username, _bizList[0].business_id, _bizList[0].name);
+                    } else if (_bizList.length > 1) {
+                        // remember the last-used business so reloads don't re-prompt
+                        var _last  = localStorage.getItem('lg_admin_biz');
+                        var _match = _last && _bizList.filter(function(b){ return b.business_id === _last; })[0];
+                        if (_match) { await window._enterBusiness(username, _match.business_id, _match.name); }
+                        else        { window._showBusinessPicker(username, _bizList); }
                     } else {
                         // Not in admin_users — show username so it's easy to add
                         document.getElementById('loginOverlay').style.display = 'flex';
